@@ -1,0 +1,1269 @@
+openapi: 3.0.3
+info:
+  title: Map Area Factions API
+  description: |
+    API para sistema de mapeamento de áreas dominadas por facções.
+    
+    Este sistema oferece:
+    - Visualização de polígonos geoespaciais por facção
+    - Sistema de assinaturas com diferentes níveis de acesso
+    - Atualizações em tempo real via WebSocket/SSE
+    - Busca geográfica e geocodificação
+    - Administração de conteúdo geoespacial
+    
+    **⚠️ Disclaimer**: Os dados são colaborativos e podem conter imprecisões. 
+    Não substituem orientação oficial. Use por sua conta e risco.
+    
+  version: 1.0.0
+  contact:
+    name: Map Factions Team
+    email: api@mapfactions.com
+    url: https://mapfactions.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Desenvolvimento Local
+  - url: https://api-staging.mapfactions.com/api/v1
+    description: Staging
+  - url: https://api.mapfactions.com/api/v1
+    description: Produção
+
+security:
+  - BearerAuth: []
+
+paths:
+  # Authentication Endpoints
+  /auth/login:
+    post:
+      tags: [Authentication]
+      summary: Login de usuário
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: user@example.com
+                password:
+                  type: string
+                  format: password
+                  example: password123
+      responses:
+        '200':
+          description: Login realizado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                  refresh_token:
+                    type: string
+                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                  expires_in:
+                    type: integer
+                    example: 86400
+                  user:
+                    $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /auth/refresh:
+    post:
+      tags: [Authentication]
+      summary: Renovar token de acesso
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token:
+                  type: string
+      responses:
+        '200':
+          description: Token renovado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                  expires_in:
+                    type: integer
+
+  /auth/me:
+    get:
+      tags: [Authentication]
+      summary: Obter perfil do usuário logado
+      responses:
+        '200':
+          description: Perfil do usuário
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  # Factions Endpoints
+  /factions:
+    get:
+      tags: [Factions]
+      summary: Listar facções
+      security: []
+      parameters:
+        - name: active
+          in: query
+          schema:
+            type: boolean
+          description: Filtrar apenas facções ativas
+      responses:
+        '200':
+          description: Lista de facções
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Faction'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+    post:
+      tags: [Factions]
+      summary: Criar nova facção (Admin)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FactionInput'
+      responses:
+        '201':
+          description: Facção criada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Faction'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /factions/{id}:
+    put:
+      tags: [Factions]
+      summary: Atualizar facção (Admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FactionInput'
+      responses:
+        '200':
+          description: Facção atualizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Faction'
+
+    delete:
+      tags: [Factions]
+      summary: Remover facção (Admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Facção removida com sucesso
+
+  # Regions Endpoints
+  /regions:
+    get:
+      tags: [Regions]
+      summary: Listar regiões
+      security: []
+      parameters:
+        - name: municipality
+          in: query
+          schema:
+            type: string
+          description: Filtrar por município
+        - name: state
+          in: query
+          schema:
+            type: string
+          description: Filtrar por estado (UF)
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [neighborhood, zone, custom]
+          description: Filtrar por tipo de região
+      responses:
+        '200':
+          description: Lista de regiões
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Region'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+  /regions/{id}:
+    get:
+      tags: [Regions]
+      summary: Obter detalhes de uma região
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Detalhes da região
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegionDetail'
+
+  # Geometries Endpoints
+  /geometries:
+    get:
+      tags: [Geometries]
+      summary: Listar geometrias (polígonos/polilinhas)
+      parameters:
+        - name: region_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filtrar por região
+        - name: faction_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filtrar por facção
+        - name: risk_level
+          in: query
+          schema:
+            type: string
+            enum: [low, medium, high]
+          description: Filtrar por nível de risco
+        - name: bbox
+          in: query
+          schema:
+            type: string
+          description: Bounding box (minLng,minLat,maxLng,maxLat)
+          example: "-38.6,-3.9,-38.4,-3.6"
+      responses:
+        '200':
+          description: Lista de geometrias
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                    example: FeatureCollection
+                  features:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GeometryFeature'
+
+    post:
+      tags: [Geometries]
+      summary: Criar nova geometria (Admin/Moderator)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GeometryInput'
+      responses:
+        '201':
+          description: Geometria criada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Geometry'
+
+  /geometries/{id}:
+    get:
+      tags: [Geometries]
+      summary: Obter detalhes de uma geometria
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Detalhes da geometria
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeometryDetail'
+
+    put:
+      tags: [Geometries]
+      summary: Atualizar geometria (Admin/Moderator)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GeometryInput'
+      responses:
+        '200':
+          description: Geometria atualizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Geometry'
+
+    delete:
+      tags: [Geometries]
+      summary: Remover geometria (Admin/Moderator)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Geometria removida com sucesso
+
+  /geometries/import:
+    post:
+      tags: [Geometries]
+      summary: Importar GeoJSON (Admin/Moderator)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [geojson, region_id]
+              properties:
+                geojson:
+                  type: object
+                  description: GeoJSON FeatureCollection
+                region_id:
+                  type: string
+                  format: uuid
+                faction_id:
+                  type: string
+                  format: uuid
+                risk_level:
+                  type: string
+                  enum: [low, medium, high]
+                  default: low
+      responses:
+        '201':
+          description: GeoJSON importado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  imported_count:
+                    type: integer
+                  geometries:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Geometry'
+
+  /geometries/{id}/history:
+    get:
+      tags: [Geometries]
+      summary: Histórico de versões de uma geometria (Admin/Moderator)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Histórico de versões
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GeometryVersion'
+
+  # Search Endpoints
+  /search:
+    get:
+      tags: [Search]
+      summary: Busca geral por localização
+      security: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Termo de busca (bairro, cidade, CEP)
+          example: "Messejana, Fortaleza-CE"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+          description: Número máximo de resultados
+      responses:
+        '200':
+          description: Resultados da busca
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SearchResult'
+
+  /geocode:
+    get:
+      tags: [Search]
+      summary: Geocodificação de endereço
+      security: []
+      parameters:
+        - name: address
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Endereço para geocodificar
+        - name: provider
+          in: query
+          schema:
+            type: string
+            enum: [mapbox, google, osm]
+            default: mapbox
+          description: Provedor de geocodificação
+      responses:
+        '200':
+          description: Coordenadas do endereço
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeocodeResult'
+
+  # Incidents Endpoints
+  /incidents:
+    get:
+      tags: [Incidents]
+      summary: Listar incidentes
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, resolved, expired]
+          description: Filtrar por status
+        - name: type
+          in: query
+          schema:
+            type: string
+          description: Filtrar por tipo de incidente
+        - name: bbox
+          in: query
+          schema:
+            type: string
+          description: Bounding box para filtro geográfico
+      responses:
+        '200':
+          description: Lista de incidentes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Incident'
+
+    post:
+      tags: [Incidents]
+      summary: Reportar novo incidente
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IncidentInput'
+      responses:
+        '201':
+          description: Incidente criado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Incident'
+
+  /incidents/nearby:
+    get:
+      tags: [Incidents]
+      summary: Incidentes próximos a uma localização
+      parameters:
+        - name: lat
+          in: query
+          required: true
+          schema:
+            type: number
+            format: double
+          description: Latitude
+        - name: lng
+          in: query
+          required: true
+          schema:
+            type: number
+            format: double
+          description: Longitude
+        - name: radius
+          in: query
+          schema:
+            type: number
+            format: double
+            default: 1000
+          description: Raio em metros
+      responses:
+        '200':
+          description: Incidentes próximos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/IncidentWithDistance'
+
+  # Subscriptions Endpoints
+  /subscriptions/plans:
+    get:
+      tags: [Subscriptions]
+      summary: Listar planos de assinatura disponíveis
+      security: []
+      responses:
+        '200':
+          description: Planos disponíveis
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  plans:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SubscriptionPlan'
+
+  /subscriptions/create:
+    post:
+      tags: [Subscriptions]
+      summary: Criar nova assinatura
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [plan_id]
+              properties:
+                plan_id:
+                  type: string
+                  example: monthly
+                payment_method:
+                  type: string
+                  enum: [pix, credit_card]
+                  default: pix
+      responses:
+        '201':
+          description: Assinatura criada (aguardando pagamento)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionPayment'
+
+  /subscriptions/webhook:
+    post:
+      tags: [Subscriptions]
+      summary: Webhook do Mercado Pago
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Payload do webhook do Mercado Pago
+      responses:
+        '200':
+          description: Webhook processado com sucesso
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [admin, moderator, collaborator, citizen]
+        status:
+          type: string
+          example: active
+        created_at:
+          type: string
+          format: date-time
+        subscription:
+          $ref: '#/components/schemas/UserSubscription'
+
+    UserSubscription:
+      type: object
+      properties:
+        plan:
+          type: string
+          example: monthly
+        status:
+          type: string
+          enum: [active, expired, cancelled, pending]
+        expires_at:
+          type: string
+          format: date-time
+
+    Faction:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Terceiro Comando de Fortaleza
+        acronym:
+          type: string
+          example: TDN
+        color_hex:
+          type: string
+          example: "#ff0000"
+        display_priority:
+          type: integer
+          example: 10
+        active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    FactionInput:
+      type: object
+      required: [name, acronym, color_hex]
+      properties:
+        name:
+          type: string
+          example: Nova Facção
+        acronym:
+          type: string
+          example: NF
+        color_hex:
+          type: string
+          pattern: "^#[0-9A-Fa-f]{6}$"
+          example: "#0066cc"
+        display_priority:
+          type: integer
+          default: 0
+        active:
+          type: boolean
+          default: true
+
+    Region:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Messejana
+        type:
+          type: string
+          enum: [neighborhood, zone, custom]
+        municipality:
+          type: string
+          example: Fortaleza
+        state:
+          type: string
+          example: CE
+        centroid:
+          $ref: '#/components/schemas/Point'
+        status:
+          type: string
+          enum: [draft, review, published]
+
+    RegionDetail:
+      allOf:
+        - $ref: '#/components/schemas/Region'
+        - type: object
+          properties:
+            bounds:
+              $ref: '#/components/schemas/Polygon'
+            statistics:
+              type: object
+              properties:
+                total_geometries:
+                  type: integer
+                total_factions:
+                  type: integer
+                risk_levels:
+                  type: object
+                  properties:
+                    low:
+                      type: integer
+                    medium:
+                      type: integer
+                    high:
+                      type: integer
+
+    Geometry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        region_id:
+          type: string
+          format: uuid
+        geometry_type:
+          type: string
+          enum: [polygon, polyline]
+        risk_level:
+          type: string
+          enum: [low, medium, high]
+        faction_id:
+          type: string
+          format: uuid
+        validity_start:
+          type: string
+          format: date-time
+        validity_end:
+          type: string
+          format: date-time
+        source:
+          type: string
+        notes:
+          type: string
+        status:
+          type: string
+          enum: [draft, review, published]
+        author_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+
+    GeometryDetail:
+      allOf:
+        - $ref: '#/components/schemas/Geometry'
+        - type: object
+          properties:
+            geojson:
+              type: object
+              description: GeoJSON Feature
+            faction:
+              $ref: '#/components/schemas/Faction'
+            region:
+              $ref: '#/components/schemas/Region'
+            author:
+              type: object
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                name:
+                  type: string
+
+    GeometryFeature:
+      type: object
+      properties:
+        type:
+          type: string
+          example: Feature
+        id:
+          type: string
+          format: uuid
+        geometry:
+          oneOf:
+            - $ref: '#/components/schemas/Polygon'
+            - $ref: '#/components/schemas/LineString'
+        properties:
+          type: object
+          properties:
+            faction_id:
+              type: string
+              format: uuid
+            faction_name:
+              type: string
+            faction_acronym:
+              type: string
+            color_hex:
+              type: string
+            risk_level:
+              type: string
+              enum: [low, medium, high]
+            region_name:
+              type: string
+            notes:
+              type: string
+
+    GeometryInput:
+      type: object
+      required: [geojson, region_id]
+      properties:
+        geojson:
+          type: object
+          description: GeoJSON Feature
+        region_id:
+          type: string
+          format: uuid
+        geometry_type:
+          type: string
+          enum: [polygon, polyline]
+        risk_level:
+          type: string
+          enum: [low, medium, high]
+          default: low
+        faction_id:
+          type: string
+          format: uuid
+        validity_start:
+          type: string
+          format: date-time
+        validity_end:
+          type: string
+          format: date-time
+        source:
+          type: string
+        notes:
+          type: string
+        status:
+          type: string
+          enum: [draft, review, published]
+          default: draft
+
+    GeometryVersion:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        geometry_id:
+          type: string
+          format: uuid
+        geojson:
+          type: object
+        diff:
+          type: object
+        action:
+          type: string
+          enum: [create, update, delete]
+        author_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+
+    Incident:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          example: Bloqueio de Via
+        description:
+          type: string
+        location:
+          $ref: '#/components/schemas/Point'
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+        severity:
+          type: integer
+          minimum: 1
+          maximum: 5
+        status:
+          type: string
+          enum: [active, resolved, expired]
+        author_id:
+          type: string
+          format: uuid
+
+    IncidentInput:
+      type: object
+      required: [type, location]
+      properties:
+        type:
+          type: string
+          example: Bloqueio de Via
+        description:
+          type: string
+        location:
+          $ref: '#/components/schemas/Point'
+        severity:
+          type: integer
+          minimum: 1
+          maximum: 5
+          default: 1
+        end_time:
+          type: string
+          format: date-time
+
+    IncidentWithDistance:
+      allOf:
+        - $ref: '#/components/schemas/Incident'
+        - type: object
+          properties:
+            distance:
+              type: number
+              format: double
+              description: Distância em metros
+
+    SearchResult:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Messejana, Fortaleza-CE
+        type:
+          type: string
+          enum: [region, address, poi]
+        location:
+          $ref: '#/components/schemas/Point'
+        bounds:
+          $ref: '#/components/schemas/BoundingBox'
+        municipality:
+          type: string
+        state:
+          type: string
+
+    GeocodeResult:
+      type: object
+      properties:
+        address:
+          type: string
+        location:
+          $ref: '#/components/schemas/Point'
+        confidence:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 1
+        provider:
+          type: string
+
+    SubscriptionPlan:
+      type: object
+      properties:
+        id:
+          type: string
+          example: monthly
+        name:
+          type: string
+          example: Plano Mensal
+        description:
+          type: string
+        price:
+          type: number
+          format: double
+          example: 14.90
+        currency:
+          type: string
+          example: BRL
+        duration_days:
+          type: integer
+          example: 30
+        features:
+          type: array
+          items:
+            type: string
+
+    SubscriptionPayment:
+      type: object
+      properties:
+        subscription_id:
+          type: string
+          format: uuid
+        payment_url:
+          type: string
+          format: uri
+        qr_code:
+          type: string
+          description: QR Code para Pix (base64)
+        expires_at:
+          type: string
+          format: date-time
+
+    Point:
+      type: object
+      properties:
+        type:
+          type: string
+          example: Point
+        coordinates:
+          type: array
+          items:
+            type: number
+            format: double
+          minItems: 2
+          maxItems: 2
+          example: [-38.5267, -3.7172]
+
+    Polygon:
+      type: object
+      properties:
+        type:
+          type: string
+          example: Polygon
+        coordinates:
+          type: array
+          items:
+            type: array
+            items:
+              type: array
+              items:
+                type: number
+                format: double
+              minItems: 2
+              maxItems: 2
+
+    LineString:
+      type: object
+      properties:
+        type:
+          type: string
+          example: LineString
+        coordinates:
+          type: array
+          items:
+            type: array
+            items:
+              type: number
+              format: double
+            minItems: 2
+            maxItems: 2
+
+    BoundingBox:
+      type: array
+      items:
+        type: number
+        format: double
+      minItems: 4
+      maxItems: 4
+      example: [-38.6, -3.9, -38.4, -3.6]
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        per_page:
+          type: integer
+          example: 20
+        total:
+          type: integer
+          example: 150
+        total_pages:
+          type: integer
+          example: 8
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        code:
+          type: string
+        details:
+          type: object
+
+  responses:
+    Unauthorized:
+      description: Token de autenticação inválido ou ausente
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Unauthorized"
+            message: "Token de acesso inválido"
+            code: "AUTH_001"
+
+    Forbidden:
+      description: Usuário não possui permissão para esta operação
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Forbidden"
+            message: "Permissão insuficiente para esta operação"
+            code: "AUTH_002"
+
+    NotFound:
+      description: Recurso não encontrado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Not Found"
+            message: "Recurso solicitado não foi encontrado"
+            code: "RESOURCE_001"
+
+    RateLimited:
+      description: Limite de requisições excedido
+      headers:
+        X-RateLimit-Limit:
+          description: Limite de requisições por janela de tempo
+          schema:
+            type: integer
+        X-RateLimit-Remaining:
+          description: Requisições restantes na janela atual
+          schema:
+            type: integer
+        X-RateLimit-Reset:
+          description: Timestamp quando o limite será resetado
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Rate Limit Exceeded"
+            message: "Muitas requisições. Tente novamente em alguns segundos"
+            code: "RATE_001"
+
+    ValidationError:
+      description: Erro de validação dos dados enviados
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Error'
+              - type: object
+                properties:
+                  validation_errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        field:
+                          type: string
+                        message:
+                          type: string
+
+tags:
+  - name: Authentication
+    description: Endpoints de autenticação e autorização
+  - name: Factions
+    description: Gerenciamento de facções
+  - name: Regions
+    description: Regiões e áreas geográficas
+  - name: Geometries
+    description: Polígonos e polilinhas geoespaciais
+  - name: Search
+    description: Busca e geocodificação
+  - name: Incidents
+    description: Incidentes e ocorrências
+  - name: Subscriptions
+    description: Planos e assinaturas

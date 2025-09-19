@@ -1,0 +1,465 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: map-area-factions
+
+jobs:
+  # Backend Tests and Build
+  backend:
+    name: Backend CI/CD
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgis/postgis:15-3.3
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+          cache-dependency-path: backend/go.sum
+
+      - name: Install dependencies
+        working-directory: backend
+        run: go mod download
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: latest
+          working-directory: backend
+
+      - name: Run tests
+        working-directory: backend
+        env:
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          DB_NAME: test_db
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+        run: |
+          go test -v -race -coverprofile=coverage.out ./...
+          go tool cover -html=coverage.out -o coverage.html
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        with:
+          file: backend/coverage.out
+          flags: backend
+
+      - name: Build binary
+        working-directory: backend
+        run: |
+          CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o bin/server main.go
+
+      - name: Log in to Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        if: github.event_name != 'pull_request'
+        id: meta-backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository }}/backend
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+
+      - name: Build and push Docker image
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v5
+        with:
+          context: backend
+          push: true
+          tags: ${{ steps.meta-backend.outputs.tags }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
+
+  # Admin Frontend Tests and Build
+  admin:
+    name: Admin Frontend CI/CD
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: admin/package-lock.json
+
+      - name: Install dependencies
+        working-directory: admin
+        run: npm ci
+
+      - name: Run ESLint
+        working-directory: admin
+        run: npm run lint
+
+      - name: Run type check
+        working-directory: admin
+        run: npm run type-check
+
+      - name: Run tests
+        working-directory: admin
+        run: npm test -- --coverage
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        with:
+          file: admin/coverage/lcov.info
+          flags: admin
+
+      - name: Build application
+        working-directory: admin
+        env:
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_MAPBOX_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_TOKEN }}
+        run: npm run build
+
+      - name: Log in to Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        if: github.event_name != 'pull_request'
+        id: meta-admin
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository }}/admin
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+
+      - name: Build and push Docker image
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v5
+        with:
+          context: admin
+          push: true
+          tags: ${{ steps.meta-admin.outputs.tags }}
+          labels: ${{ steps.meta-admin.outputs.labels }}
+
+  # Flutter App Tests and Build
+  flutter:
+    name: Flutter App CI/CD
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.16.0'
+          cache: true
+
+      - name: Install dependencies
+        working-directory: app
+        run: flutter pub get
+
+      - name: Run analyzer
+        working-directory: app
+        run: flutter analyze
+
+      - name: Run tests
+        working-directory: app
+        run: flutter test --coverage
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        with:
+          file: app/coverage/lcov.info
+          flags: flutter
+
+      - name: Build APK
+        working-directory: app
+        run: flutter build apk --release
+
+      - name: Build Web
+        working-directory: app
+        run: flutter build web --release
+
+      - name: Upload artifacts
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v3
+        with:
+          name: flutter-builds
+          path: |
+            app/build/app/outputs/flutter-apk/
+            app/build/web/
+
+  # Security Scanning
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: [backend, admin]
+    if: github.event_name != 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Run CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
+        with:
+          languages: go, javascript
+
+  # Infrastructure Validation
+  infrastructure:
+    name: Infrastructure Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+
+      - name: Terraform Format Check
+        working-directory: infra/terraform
+        run: terraform fmt -check
+
+      - name: Terraform Init
+        working-directory: infra/terraform
+        run: terraform init -backend=false
+
+      - name: Terraform Validate
+        working-directory: infra/terraform
+        run: terraform validate
+
+      - name: Terraform Plan
+        working-directory: infra/terraform
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          terraform plan \
+            -var-file=environments/staging.tfvars \
+            -out=tfplan
+
+  # End-to-End Tests
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: [backend, admin]
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install Playwright
+        working-directory: admin
+        run: |
+          npm ci
+          npx playwright install --with-deps
+
+      - name: Start services
+        run: |
+          docker-compose -f docker-compose.test.yml up -d
+          sleep 30
+
+      - name: Run E2E tests
+        working-directory: admin
+        env:
+          PLAYWRIGHT_BASE_URL: http://localhost:3000
+        run: npm run test:e2e
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: playwright-report
+          path: admin/playwright-report/
+
+      - name: Stop services
+        if: always()
+        run: docker-compose -f docker-compose.test.yml down
+
+  # Deploy to Staging
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [backend, admin, flutter, security, infrastructure]
+    if: github.ref == 'refs/heads/develop'
+    environment: staging
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+
+      - name: Deploy infrastructure
+        working-directory: infra/terraform
+        run: |
+          terraform init
+          terraform apply -var-file=environments/staging.tfvars -auto-approve
+
+      - name: Update ECS services
+        run: |
+          aws ecs update-service \
+            --cluster map-factions-staging \
+            --service backend \
+            --force-new-deployment
+          
+          aws ecs update-service \
+            --cluster map-factions-staging \
+            --service admin \
+            --force-new-deployment
+
+      - name: Wait for deployment
+        run: |
+          aws ecs wait services-stable \
+            --cluster map-factions-staging \
+            --services backend admin
+
+  # Deploy to Production
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [backend, admin, flutter, security, infrastructure, e2e]
+    if: github.ref == 'refs/heads/main'
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+
+      - name: Deploy infrastructure
+        working-directory: infra/terraform
+        run: |
+          terraform init
+          terraform apply -var-file=environments/production.tfvars -auto-approve
+
+      - name: Blue/Green deployment
+        run: |
+          # Create new task definition with new image
+          aws ecs register-task-definition \
+            --family map-factions-backend \
+            --cli-input-json file://task-definition.json
+          
+          # Update service with new task definition
+          aws ecs update-service \
+            --cluster map-factions-production \
+            --service backend \
+            --task-definition map-factions-backend
+
+      - name: Wait for deployment
+        run: |
+          aws ecs wait services-stable \
+            --cluster map-factions-production \
+            --services backend admin
+
+      - name: Run smoke tests
+        run: |
+          curl -f https://api.mapfactions.com/health || exit 1
+          curl -f https://admin.mapfactions.com || exit 1
+
+  # Notification
+  notify:
+    name: Notify Team
+    runs-on: ubuntu-latest
+    needs: [deploy-staging, deploy-production]
+    if: always()
+
+    steps:
+      - name: Notify Slack
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          channel: '#deployments'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
