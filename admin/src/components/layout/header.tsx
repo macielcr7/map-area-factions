@@ -17,7 +17,7 @@ export function Header() {
   const { data: session } = useSession()
 
   const handleSignOut = () => {
-    signOut({ callbackUrl: '/auth/login' })
+    signOut({ callbackUrl: '/login' })
   }
 
   return (

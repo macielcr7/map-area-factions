@@ -18,6 +18,9 @@ func NewDatabaseService(cfg *config.DatabaseConfig) (*DatabaseService, error) {
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s",
 		cfg.Host, cfg.User, cfg.Password, cfg.Name, cfg.Port, cfg.SSLMode)
 
+	fmt.Printf("Database config: host=%s, port=%s, user=%s, dbname=%s\n",
+		cfg.Host, cfg.Port, cfg.User, cfg.Name)
+
 	// Configure GORM logger
 	var gormLogger logger.Interface
 	gormLogger = logger.Default.LogMode(logger.Info)

@@ -52,28 +52,5 @@ alerting:
           # - alertmanager:9093
 
 # Recording rules for common queries
-recording_rules:
-  - name: map_factions_rules
-    rules:
-    # API response time percentiles
-    - record: map_factions:http_request_duration_seconds:p95
-      expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, method, route))
-    
-    - record: map_factions:http_request_duration_seconds:p99
-      expr: histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, method, route))
-    
-    # Error rate
-    - record: map_factions:http_request_error_rate
-      expr: sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m]))
-    
-    # Database connection utilization
-    - record: map_factions:db_connection_utilization
-      expr: postgresql_stats_database_numbackends / postgresql_settings_max_connections
-    
-    # Redis memory utilization
-    - record: map_factions:redis_memory_utilization
-      expr: redis_memory_used_bytes / redis_memory_max_bytes
-
-# Notification templates
-rule_files:
-  - "/etc/prometheus/alerts/*.yml"
+# rule_files:
+#   - "/etc/prometheus/rules/*.yml"

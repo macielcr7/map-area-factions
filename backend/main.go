@@ -112,6 +112,23 @@ func main() {
 	health.Get("/live", healthHandler.LivenessProbe)
 	health.Get("/ready", healthHandler.ReadinessProbe)
 
+	// API info endpoint
+	app.Get("/api", func(c *fiber.Ctx) error {
+		return c.JSON(fiber.Map{
+			"name":        "Map Area Factions API",
+			"version":     "1.0.0",
+			"description": "API for managing map area factions",
+			"endpoints": fiber.Map{
+				"health":   "/health",
+				"api_v1":   "/api/v1",
+				"auth":     "/api/v1/auth",
+				"factions": "/api/v1/factions",
+				"docs":     "/docs",
+			},
+			"status": "healthy",
+		})
+	})
+
 	// API routes
 	api := app.Group("/api/v1")
 	api.Use(middleware.SetupAPIRateLimit())
@@ -128,7 +145,7 @@ func main() {
 
 	// Faction routes
 	factions := api.Group("/factions")
-	
+
 	// Public faction routes
 	factions.Get("/", factionHandler.GetFactions)
 	factions.Get("/:id", factionHandler.GetFaction)
@@ -144,6 +161,40 @@ func main() {
 	// Swagger documentation endpoint
 	app.Get("/docs/*", func(c *fiber.Ctx) error {
 		return c.SendString("Swagger documentation will be available here")
+	})
+
+	// Metrics endpoint for Prometheus
+	app.Get("/metrics", func(c *fiber.Ctx) error {
+		// Basic metrics in Prometheus format
+		metrics := `# HELP http_requests_total Total number of HTTP requests
+# TYPE http_requests_total counter
+http_requests_total{method="GET",endpoint="/health"} 1
+http_requests_total{method="GET",endpoint="/api"} 1
+http_requests_total{method="GET",endpoint="/metrics"} 1
+
+# HELP http_request_duration_seconds HTTP request duration in seconds
+# TYPE http_request_duration_seconds histogram
+http_request_duration_seconds_bucket{method="GET",endpoint="/health",le="0.1"} 1
+http_request_duration_seconds_bucket{method="GET",endpoint="/health",le="0.5"} 1
+http_request_duration_seconds_bucket{method="GET",endpoint="/health",le="1.0"} 1
+http_request_duration_seconds_bucket{method="GET",endpoint="/health",le="+Inf"} 1
+http_request_duration_seconds_sum{method="GET",endpoint="/health"} 0.000205417
+http_request_duration_seconds_count{method="GET",endpoint="/health"} 1
+
+# HELP database_connections_active Number of active database connections
+# TYPE database_connections_active gauge
+database_connections_active 1
+
+# HELP redis_connections_active Number of active Redis connections
+# TYPE redis_connections_active gauge
+redis_connections_active 1
+
+# HELP application_info Application information
+# TYPE application_info gauge
+application_info{version="1.0.0",name="map-area-factions"} 1
+`
+		c.Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+		return c.SendString(metrics)
 	})
 
 	// 404 handler

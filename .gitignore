@@ -243,3 +243,5 @@ docker-compose.override.yml
 # Misc
 *.tsbuildinfo
 .eslintcache
+
+admin/standalone-build/

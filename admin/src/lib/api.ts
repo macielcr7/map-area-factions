@@ -5,8 +5,13 @@ class ApiClient {
   private client: AxiosInstance
 
   constructor() {
+    const isBrowser = typeof window !== 'undefined'
+    const baseURL = isBrowser
+      ? process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'
+      : process.env.NEXT_INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://backend:8080/api/v1'
+
     this.client = axios.create({
-      baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1',
+      baseURL,
       timeout: 10000,
     })
 

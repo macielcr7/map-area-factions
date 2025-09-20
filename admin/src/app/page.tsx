@@ -12,7 +12,7 @@ export default function HomePage() {
     if (status === 'loading') return // Still loading
 
     if (!session) {
-      router.push('/auth/login')
+      router.push('/login')
       return
     }
 

@@ -18,7 +18,7 @@ export default function MainLayout({
     if (status === 'loading') return // Still loading
 
     if (!session) {
-      router.push('/auth/login')
+      router.push('/login')
       return
     }
   }, [session, status, router])
