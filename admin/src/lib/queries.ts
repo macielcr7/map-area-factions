@@ -46,7 +46,7 @@ export function useDeleteUser() {
   const queryClient = useQueryClient()
   
   return useMutation({
-    mutationFn: apiClient.deleteUser,
+    mutationFn: (id: string) => apiClient.deleteUser(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] })
       toast.success('Usuário removido com sucesso')
@@ -100,7 +100,7 @@ export function useDeleteFaction() {
   const queryClient = useQueryClient()
   
   return useMutation({
-    mutationFn: apiClient.deleteFaction,
+    mutationFn: (id: string) => apiClient.deleteFaction(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['factions'] })
       toast.success('Facção removida com sucesso')
@@ -159,7 +159,7 @@ export function useDeleteGeometry() {
   const queryClient = useQueryClient()
   
   return useMutation({
-    mutationFn: apiClient.deleteGeometry,
+    mutationFn: (id: string) => apiClient.deleteGeometry(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['geometries'] })
       toast.success('Geometria removida com sucesso')
@@ -226,7 +226,7 @@ export function useDeleteReport() {
   const queryClient = useQueryClient()
   
   return useMutation({
-    mutationFn: apiClient.deleteReport,
+    mutationFn: (id: string) => apiClient.deleteReport(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reports'] })
       toast.success('Relatório removido com sucesso')
