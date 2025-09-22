@@ -78,7 +78,7 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	}
 
 	// Check password
-	if !auth.CheckPasswordHash(req.Password, user.PasswordHash) {
+	if !auth.CheckPasswordHash(req.Password, user.Password) {
 		return c.Status(401).JSON(utils.ErrorResponse{
 			Error:   "Invalid credentials",
 			Code:    "AUTH_001",
@@ -87,7 +87,7 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	}
 
 	// Check if user is active
-	if user.Status != "active" {
+	if !user.Active {
 		return c.Status(401).JSON(utils.ErrorResponse{
 			Error:   "Account inactive",
 			Code:    "AUTH_007",

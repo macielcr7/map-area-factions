@@ -6,35 +6,44 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from '@/components/ui/table'
-import { 
+import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog'
-import { 
-  Users, 
-  Plus, 
-  UserCheck, 
-  Edit, 
-  Trash2, 
-  Search,
-  Filter
-} from 'lucide-react'
+import { Users, Plus, Edit, Trash2, Search } from 'lucide-react'
 
 // Mock data - replace with real API calls
-const mockUsers = [
+type UserRole = 'admin' | 'moderator' | 'collaborator' | 'citizen'
+
+interface User {
+  id: string
+  name: string
+  email: string
+  role: UserRole
+  active: boolean
+  created_at: string
+}
+
+interface UserFormData {
+  name: string
+  email: string
+  password: string
+  role: UserRole
+}
+
+const mockUsers: User[] = [
   {
     id: '1',
     name: 'João Silva',
@@ -69,14 +78,14 @@ const mockUsers = [
   }
 ]
 
-const roleColors = {
+const roleColors: Record<UserRole, string> = {
   admin: 'bg-red-500',
   moderator: 'bg-blue-500', 
   collaborator: 'bg-green-500',
   citizen: 'bg-gray-500'
 }
 
-const roleLabels = {
+const roleLabels: Record<UserRole, string> = {
   admin: 'Administrador',
   moderator: 'Moderador',
   collaborator: 'Colaborador', 
@@ -84,13 +93,13 @@ const roleLabels = {
 }
 
 export default function UsersPage() {
-  const [users, setUsers] = useState(mockUsers)
+  const [users, setUsers] = useState<User[]>(mockUsers)
   const [searchTerm, setSearchTerm] = useState('')
-  const [roleFilter, setRoleFilter] = useState('')
+  const [roleFilter, setRoleFilter] = useState<UserRole | ''>('')
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isEditOpen, setIsEditOpen] = useState(false)
-  const [selectedUser, setSelectedUser] = useState(null)
-  const [formData, setFormData] = useState({
+  const [selectedUser, setSelectedUser] = useState<User | null>(null)
+  const [formData, setFormData] = useState<UserFormData>({
     name: '',
     email: '',
     password: '',
@@ -105,33 +114,42 @@ export default function UsersPage() {
   })
 
   const handleCreateUser = () => {
-    const newUser = {
+    const { password: _password, ...userData } = formData
+    const newUser: User = {
       id: Date.now().toString(),
-      ...formData,
+      ...userData,
       active: true,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
     }
-    setUsers([...users, newUser])
+    setUsers(prev => [...prev, newUser])
     setIsCreateOpen(false)
     setFormData({ name: '', email: '', password: '', role: 'citizen' })
   }
 
   const handleEditUser = () => {
-    setUsers(users.map(user => 
-      user.id === selectedUser.id 
-        ? { ...user, ...formData }
-        : user
-    ))
+    if (!selectedUser) {
+      return
+    }
+
+    const { password: _password, name, email, role } = formData
+
+    setUsers(prev =>
+      prev.map(user =>
+        user.id === selectedUser.id
+          ? { ...user, name, email, role }
+          : user,
+      ),
+    )
     setIsEditOpen(false)
     setSelectedUser(null)
     setFormData({ name: '', email: '', password: '', role: 'citizen' })
   }
 
-  const handleDeleteUser = (userId) => {
-    setUsers(users.filter(user => user.id !== userId))
+  const handleDeleteUser = (userId: string) => {
+    setUsers(prev => prev.filter(user => user.id !== userId))
   }
 
-  const openEditDialog = (user) => {
+  const openEditDialog = (user: User) => {
     setSelectedUser(user)
     setFormData({
       name: user.name,
@@ -170,7 +188,7 @@ export default function UsersPage() {
             <div className="w-48">
               <select
                 value={roleFilter}
-                onChange={(e) => setRoleFilter(e.target.value)}
+                onChange={(e) => setRoleFilter(e.target.value as UserRole | '')}
                 className="w-full p-2 border rounded-md"
               >
                 <option value="">Todas as funções</option>
@@ -215,7 +233,10 @@ export default function UsersPage() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={user.active ? "success" : "secondary"}>
+                    <Badge
+                      variant="secondary"
+                      className={user.active ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-800'}
+                    >
                       {user.active ? 'Ativo' : 'Inativo'}
                     </Badge>
                   </TableCell>
@@ -291,7 +312,7 @@ export default function UsersPage() {
               <select
                 id="role"
                 value={formData.role}
-                onChange={(e) => setFormData({...formData, role: e.target.value})}
+                onChange={(e) => setFormData(prev => ({ ...prev, role: e.target.value as UserRole }))}
                 className="w-full p-2 border rounded-md"
               >
                 <option value="citizen">Cidadão</option>
@@ -344,7 +365,7 @@ export default function UsersPage() {
               <select
                 id="edit-role"
                 value={formData.role}
-                onChange={(e) => setFormData({...formData, role: e.target.value})}
+                onChange={(e) => setFormData(prev => ({ ...prev, role: e.target.value as UserRole }))}
                 className="w-full p-2 border rounded-md"
               >
                 <option value="citizen">Cidadão</option>

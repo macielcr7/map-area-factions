@@ -60,12 +60,12 @@ func (h *UserHandler) GetUsers(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"users": users,
 		"pagination": fiber.Map{
-			"page":       page,
-			"limit":      limit,
-			"total":      total,
-			"pages":      (total + limit - 1) / limit,
-			"has_next":   page*limit < total,
-			"has_prev":   page > 1,
+			"page":     page,
+			"limit":    limit,
+			"total":    total,
+			"pages":    (total + limit - 1) / limit,
+			"has_next": page*limit < total,
+			"has_prev": page > 1,
 		},
 	})
 }
@@ -261,7 +261,7 @@ func (h *UserHandler) DeleteUser(c *fiber.Ctx) error {
 		})
 	}
 
-	if err := h.userRepo.Delete(user); err != nil {
+	if err := h.userRepo.DeleteUser(user); err != nil {
 		return c.Status(500).JSON(fiber.Map{
 			"error":   "Internal Server Error",
 			"code":    "USER_017",

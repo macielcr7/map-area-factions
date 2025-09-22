@@ -23,7 +23,22 @@ import {
 } from 'lucide-react'
 
 // Mock audit data - replace with real API calls
-const mockAuditLogs = [
+type AuditLogAction = 'create' | 'update' | 'delete' | 'read'
+type AuditLogEntity = 'user' | 'faction' | 'geometry' | 'report'
+
+interface AuditLog {
+  id: string
+  user: { name: string; email: string }
+  entity: AuditLogEntity
+  entity_id: string
+  action: AuditLogAction
+  changes: string
+  ip_address: string
+  user_agent: string
+  created_at: string
+}
+
+const mockAuditLogs: AuditLog[] = [
   {
     id: '1',
     user: { name: 'João Silva', email: 'joao@admin.com' },
@@ -70,21 +85,21 @@ const mockAuditLogs = [
   }
 ]
 
-const actionColors = {
+const actionColors: Record<AuditLogAction, string> = {
   create: 'bg-green-500',
   update: 'bg-blue-500',
   delete: 'bg-red-500',
   read: 'bg-gray-500'
 }
 
-const actionLabels = {
+const actionLabels: Record<AuditLogAction, string> = {
   create: 'Criação',
   update: 'Atualização', 
   delete: 'Exclusão',
   read: 'Leitura'
 }
 
-const entityLabels = {
+const entityLabels: Record<AuditLogEntity, string> = {
   user: 'Usuário',
   faction: 'Facção',
   geometry: 'Geometria',
@@ -92,11 +107,11 @@ const entityLabels = {
 }
 
 export default function AuditPage() {
-  const [logs, setLogs] = useState(mockAuditLogs)
+  const [logs, setLogs] = useState<AuditLog[]>(mockAuditLogs)
   const [searchTerm, setSearchTerm] = useState('')
-  const [entityFilter, setEntityFilter] = useState('')
-  const [actionFilter, setActionFilter] = useState('')
-  const [selectedLog, setSelectedLog] = useState(null)
+  const [entityFilter, setEntityFilter] = useState<AuditLogEntity | ''>('')
+  const [actionFilter, setActionFilter] = useState<AuditLogAction | ''>('')
+  const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null)
   const [showDetails, setShowDetails] = useState(false)
 
   const filteredLogs = logs.filter(log => {
@@ -108,12 +123,12 @@ export default function AuditPage() {
     return matchesSearch && matchesEntity && matchesAction
   })
 
-  const viewLogDetails = (log) => {
+  const viewLogDetails = (log: AuditLog) => {
     setSelectedLog(log)
     setShowDetails(true)
   }
 
-  const formatChanges = (changesString) => {
+  const formatChanges = (changesString: string) => {
     try {
       const changes = JSON.parse(changesString)
       return Object.entries(changes).map(([key, value]) => (
@@ -219,7 +234,7 @@ export default function AuditPage() {
             <div className="w-48">
               <select
                 value={entityFilter}
-                onChange={(e) => setEntityFilter(e.target.value)}
+                onChange={(e) => setEntityFilter(e.target.value as AuditLogEntity | '')}
                 className="w-full p-2 border rounded-md"
               >
                 <option value="">Todas as entidades</option>
@@ -232,7 +247,7 @@ export default function AuditPage() {
             <div className="w-48">
               <select
                 value={actionFilter}
-                onChange={(e) => setActionFilter(e.target.value)}
+                onChange={(e) => setActionFilter(e.target.value as AuditLogAction | '')}
                 className="w-full p-2 border rounded-md"
               >
                 <option value="">Todas as ações</option>

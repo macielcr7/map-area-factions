@@ -6,15 +6,15 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from '@/components/ui/table'
-import { 
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -22,19 +22,43 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { 
-  FileText, 
-  Search, 
+import {
+  FileText,
+  Search,
   AlertTriangle,
   CheckCircle,
   XCircle,
   Clock,
   Eye,
-  Edit
+  Edit,
 } from 'lucide-react'
 
 // Mock reports data - replace with real API calls
-const mockReports = [
+type ReportStatus = 'pending' | 'reviewing' | 'resolved' | 'rejected'
+type ReportType = 'inaccuracy' | 'inappropriate' | 'spam' | 'outdated' | 'other'
+
+interface ReportUser {
+  name: string
+  email: string
+}
+
+interface Report {
+  id: string
+  user: ReportUser | null
+  geometry_id: string
+  type: ReportType
+  description: string
+  attachments: string[]
+  status: ReportStatus
+  reporter_lat: number | null
+  reporter_lng: number | null
+  created_at: string
+  assigned_to: ReportUser | null
+  reviewed_by: ReportUser | null
+  review_notes: string | null
+}
+
+const mockReports: Report[] = [
   {
     id: '1',
     user: { name: 'Ana Silva', email: 'ana@citizen.com' },
@@ -97,21 +121,21 @@ const mockReports = [
   }
 ]
 
-const statusColors = {
+const statusColors: Record<ReportStatus, string> = {
   pending: 'bg-yellow-500',
   reviewing: 'bg-blue-500',
   resolved: 'bg-green-500',
   rejected: 'bg-red-500'
 }
 
-const statusLabels = {
+const statusLabels: Record<ReportStatus, string> = {
   pending: 'Pendente',
   reviewing: 'Em Análise',
   resolved: 'Resolvido',
   rejected: 'Rejeitado'
 }
 
-const typeLabels = {
+const typeLabels: Record<ReportType, string> = {
   inaccuracy: 'Imprecisão',
   inappropriate: 'Conteúdo Inadequado',
   spam: 'Spam',
@@ -119,7 +143,7 @@ const typeLabels = {
   other: 'Outros'
 }
 
-const typeColors = {
+const typeColors: Record<ReportType, string> = {
   inaccuracy: 'bg-orange-500',
   inappropriate: 'bg-red-500',
   spam: 'bg-gray-500',
@@ -127,18 +151,24 @@ const typeColors = {
   other: 'bg-purple-500'
 }
 
+interface ReviewFormData {
+  status: ReportStatus
+  review_notes: string
+  assigned_to_id: string
+}
+
 export default function ReportsPage() {
-  const [reports, setReports] = useState(mockReports)
+  const [reports, setReports] = useState<Report[]>(mockReports)
   const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
-  const [typeFilter, setTypeFilter] = useState('')
-  const [selectedReport, setSelectedReport] = useState(null)
+  const [statusFilter, setStatusFilter] = useState<ReportStatus | ''>('')
+  const [typeFilter, setTypeFilter] = useState<ReportType | ''>('')
+  const [selectedReport, setSelectedReport] = useState<Report | null>(null)
   const [showDetails, setShowDetails] = useState(false)
   const [showReview, setShowReview] = useState(false)
-  const [reviewData, setReviewData] = useState({
-    status: '',
+  const [reviewData, setReviewData] = useState<ReviewFormData>({
+    status: 'pending',
     review_notes: '',
-    assigned_to_id: ''
+    assigned_to_id: '',
   })
 
   const filteredReports = reports.filter(report => {
@@ -150,12 +180,12 @@ export default function ReportsPage() {
     return matchesSearch && matchesStatus && matchesType
   })
 
-  const viewReportDetails = (report) => {
+  const viewReportDetails = (report: Report) => {
     setSelectedReport(report)
     setShowDetails(true)
   }
 
-  const openReviewDialog = (report) => {
+  const openReviewDialog = (report: Report) => {
     setSelectedReport(report)
     setReviewData({
       status: report.status,
@@ -166,16 +196,22 @@ export default function ReportsPage() {
   }
 
   const handleReviewSubmit = () => {
-    setReports(reports.map(report => 
-      report.id === selectedReport.id 
-        ? { 
-            ...report, 
-            status: reviewData.status,
-            review_notes: reviewData.review_notes,
-            reviewed_by: { name: 'Moderador Atual', email: 'moderator@admin.com' }
-          }
-        : report
-    ))
+    if (!selectedReport) {
+      return
+    }
+
+    setReports(prevReports =>
+      prevReports.map(report =>
+        report.id === selectedReport.id
+          ? {
+              ...report,
+              status: reviewData.status,
+              review_notes: reviewData.review_notes,
+              reviewed_by: { name: 'Moderador Atual', email: 'moderator@admin.com' },
+            }
+          : report,
+      ),
+    )
     setShowReview(false)
     setSelectedReport(null)
   }
@@ -272,7 +308,7 @@ export default function ReportsPage() {
             <div className="w-48">
               <select
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
+                onChange={(e) => setStatusFilter(e.target.value as ReportStatus | '')}
                 className="w-full p-2 border rounded-md"
               >
                 <option value="">Todos os status</option>
@@ -285,7 +321,7 @@ export default function ReportsPage() {
             <div className="w-48">
               <select
                 value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value)}
+                onChange={(e) => setTypeFilter(e.target.value as ReportType | '')}
                 className="w-full p-2 border rounded-md"
               >
                 <option value="">Todos os tipos</option>
@@ -468,7 +504,9 @@ export default function ReportsPage() {
               <label className="block text-sm font-medium mb-2">Status</label>
               <select
                 value={reviewData.status}
-                onChange={(e) => setReviewData({...reviewData, status: e.target.value})}
+                onChange={(e) =>
+                  setReviewData(prev => ({ ...prev, status: e.target.value as ReportStatus }))
+                }
                 className="w-full p-2 border rounded-md"
               >
                 <option value="pending">Pendente</option>
@@ -482,7 +520,7 @@ export default function ReportsPage() {
               <label className="block text-sm font-medium mb-2">Notas da Revisão</label>
               <Textarea
                 value={reviewData.review_notes}
-                onChange={(e) => setReviewData({...reviewData, review_notes: e.target.value})}
+                onChange={(e) => setReviewData(prev => ({ ...prev, review_notes: e.target.value }))}
                 placeholder="Adicione suas observações sobre a revisão..."
                 rows={4}
               />

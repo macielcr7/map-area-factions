@@ -48,7 +48,7 @@ func (h *WebSocketHandler) HandleConnection(c *websocket.Conn) {
 			"message": "Connected to Map Factions real-time updates",
 		},
 	}
-	
+
 	if data, err := json.Marshal(welcomeMsg); err == nil {
 		c.WriteMessage(websocket.TextMessage, data)
 	}
@@ -61,7 +61,7 @@ func (h *WebSocketHandler) HandleConnection(c *websocket.Conn) {
 			log.Println("read:", err)
 			break
 		}
-		
+
 		// Handle different message types
 		switch msg.Type {
 		case "ping":
@@ -141,4 +141,14 @@ func (h *WebSocketHandler) UpgradeHandler(c *fiber.Ctx) error {
 		return c.Next()
 	}
 	return fiber.ErrUpgradeRequired
+}
+
+// HandleWebSocket upgrades the connection and delegates to the WebSocket handler.
+func (h *WebSocketHandler) HandleWebSocket(c *fiber.Ctx) error {
+	if !websocket.IsWebSocketUpgrade(c) {
+		return fiber.ErrUpgradeRequired
+	}
+
+	c.Locals("allowed", true)
+	return websocket.New(h.HandleConnection)(c)
 }
