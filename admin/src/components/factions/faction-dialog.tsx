@@ -22,7 +22,6 @@ const factionSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
   acronym: z.string().min(1, 'Sigla é obrigatória').max(10, 'Sigla muito longa'),
   color_hex: z.string().regex(/^#[0-9A-F]{6}$/i, 'Cor deve ser um hex válido'),
-  description: z.string().optional(),
   active: z.boolean(),
   display_priority: z.number().min(1).max(100),
 })
@@ -68,7 +67,6 @@ export function FactionDialog({
       name: '',
       acronym: '',
       color_hex: '#ff0000',
-      description: '',
       active: true,
       display_priority: 1,
     },
@@ -86,7 +84,6 @@ export function FactionDialog({
         name: faction.name || '',
         acronym: faction.acronym || '',
         color_hex: faction.color_hex || '#ff0000',
-        description: faction.description || '',
         active: faction.active ?? true,
         display_priority: faction.display_priority || 1,
       })
@@ -96,7 +93,6 @@ export function FactionDialog({
         name: '',
         acronym: '',
         color_hex: '#ff0000',
-        description: '',
         active: true,
         display_priority: 1,
       })
@@ -148,16 +144,6 @@ export function FactionDialog({
                 <p className="text-sm text-red-600">{errors.acronym.message}</p>
               )}
             </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="description">Descrição</Label>
-            <Textarea
-              id="description"
-              {...register('description')}
-              placeholder="Descrição opcional da facção"
-              rows={3}
-            />
           </div>
 
           <div className="space-y-2">

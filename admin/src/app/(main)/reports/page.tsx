@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useReports, useUpdateReport } from '@/lib/queries'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -27,13 +28,12 @@ import {
   Search,
   AlertTriangle,
   CheckCircle,
-  XCircle,
   Clock,
   Eye,
   Edit,
+  Loader2,
 } from 'lucide-react'
 
-// Mock reports data - replace with real API calls
 type ReportStatus = 'pending' | 'reviewing' | 'resolved' | 'rejected'
 type ReportType = 'inaccuracy' | 'inappropriate' | 'spam' | 'outdated' | 'other'
 
@@ -57,69 +57,6 @@ interface Report {
   reviewed_by: ReportUser | null
   review_notes: string | null
 }
-
-const mockReports: Report[] = [
-  {
-    id: '1',
-    user: { name: 'Ana Silva', email: 'ana@citizen.com' },
-    geometry_id: 'uuid-geo-1',
-    type: 'inaccuracy',
-    description: 'A área marcada como PCC não corresponde à realidade atual do bairro.',
-    attachments: ['evidence1.jpg'],
-    status: 'pending',
-    reporter_lat: -3.7319,
-    reporter_lng: -38.5267,
-    created_at: '2024-01-20T10:30:00Z',
-    assigned_to: null,
-    reviewed_by: null,
-    review_notes: null
-  },
-  {
-    id: '2',
-    user: { name: 'Carlos Santos', email: 'carlos@citizen.com' },
-    geometry_id: 'uuid-geo-2',
-    type: 'inappropriate',
-    description: 'Conteúdo ofensivo nas descrições da área.',
-    attachments: [],
-    status: 'reviewing',
-    reporter_lat: -3.7420,
-    reporter_lng: -38.5367,
-    created_at: '2024-01-19T14:15:00Z',
-    assigned_to: { name: 'Maria Moderadora', email: 'maria@moderator.com' },
-    reviewed_by: null,
-    review_notes: null
-  },
-  {
-    id: '3',
-    user: { name: 'João Oliveira', email: 'joao@citizen.com' },
-    geometry_id: 'uuid-geo-3',
-    type: 'outdated',
-    description: 'Informações desatualizadas sobre domínio territorial.',
-    attachments: ['photo1.jpg', 'photo2.jpg'],
-    status: 'resolved',
-    reporter_lat: -3.7220,
-    reporter_lng: -38.5167,
-    created_at: '2024-01-18T09:45:00Z',
-    assigned_to: { name: 'Pedro Moderador', email: 'pedro@moderator.com' },
-    reviewed_by: { name: 'Pedro Moderador', email: 'pedro@moderator.com' },
-    review_notes: 'Informações atualizadas conforme evidências fornecidas.'
-  },
-  {
-    id: '4',
-    user: null, // Anonymous report
-    geometry_id: 'uuid-geo-4',
-    type: 'spam',
-    description: 'Conteúdo duplicado e sem relevância.',
-    attachments: [],
-    status: 'rejected',
-    reporter_lat: -3.7519,
-    reporter_lng: -38.5467,
-    created_at: '2024-01-17T16:20:00Z',
-    assigned_to: { name: 'Maria Moderadora', email: 'maria@moderator.com' },
-    reviewed_by: { name: 'Maria Moderadora', email: 'maria@moderator.com' },
-    review_notes: 'Relatório classificado como spam e rejeitado.'
-  }
-]
 
 const statusColors: Record<ReportStatus, string> = {
   pending: 'bg-yellow-500',
@@ -154,11 +91,9 @@ const typeColors: Record<ReportType, string> = {
 interface ReviewFormData {
   status: ReportStatus
   review_notes: string
-  assigned_to_id: string
 }
 
 export default function ReportsPage() {
-  const [reports, setReports] = useState<Report[]>(mockReports)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<ReportStatus | ''>('')
   const [typeFilter, setTypeFilter] = useState<ReportType | ''>('')
@@ -168,16 +103,22 @@ export default function ReportsPage() {
   const [reviewData, setReviewData] = useState<ReviewFormData>({
     status: 'pending',
     review_notes: '',
-    assigned_to_id: '',
   })
 
-  const filteredReports = reports.filter(report => {
+  // API hooks
+  const { data: reportsData, isLoading } = useReports({
+    status: statusFilter || undefined,
+    type: typeFilter || undefined,
+  })
+  const updateReportMutation = useUpdateReport()
+
+  const reports = reportsData?.data || []
+  
+  const filteredReports = reports.filter((report: Report) => {
     const matchesSearch = (report.user?.name || 'Anônimo').toLowerCase().includes(searchTerm.toLowerCase()) ||
                          report.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          report.type.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = !statusFilter || report.status === statusFilter
-    const matchesType = !typeFilter || report.type === typeFilter
-    return matchesSearch && matchesStatus && matchesType
+    return matchesSearch
   })
 
   const viewReportDetails = (report: Report) => {
@@ -190,42 +131,35 @@ export default function ReportsPage() {
     setReviewData({
       status: report.status,
       review_notes: report.review_notes || '',
-      assigned_to_id: report.assigned_to?.email || ''
     })
     setShowReview(true)
   }
 
-  const handleReviewSubmit = () => {
-    if (!selectedReport) {
-      return
-    }
+  const handleReviewSubmit = async () => {
+    if (!selectedReport) return
 
-    setReports(prevReports =>
-      prevReports.map(report =>
-        report.id === selectedReport.id
-          ? {
-              ...report,
-              status: reviewData.status,
-              review_notes: reviewData.review_notes,
-              reviewed_by: { name: 'Moderador Atual', email: 'moderator@admin.com' },
-            }
-          : report,
-      ),
-    )
-    setShowReview(false)
-    setSelectedReport(null)
+    try {
+      await updateReportMutation.mutateAsync({
+        id: selectedReport.id,
+        data: reviewData
+      })
+      setShowReview(false)
+      setSelectedReport(null)
+    } catch (error) {
+      // Error handled by mutation
+    }
   }
 
-  // Mock statistics
+  // Calculate statistics from real data
   const stats = {
     total_reports: reports.length,
-    pending_reports: reports.filter(r => r.status === 'pending').length,
-    resolved_reports: reports.filter(r => r.status === 'resolved').length,
+    pending_reports: reports.filter((r: Report) => r.status === 'pending').length,
+    resolved_reports: reports.filter((r: Report) => r.status === 'resolved').length,
     by_type: {
-      inaccuracy: reports.filter(r => r.type === 'inaccuracy').length,
-      inappropriate: reports.filter(r => r.type === 'inappropriate').length,
-      spam: reports.filter(r => r.type === 'spam').length,
-      outdated: reports.filter(r => r.type === 'outdated').length
+      inaccuracy: reports.filter((r: Report) => r.type === 'inaccuracy').length,
+      inappropriate: reports.filter((r: Report) => r.type === 'inappropriate').length,
+      spam: reports.filter((r: Report) => r.type === 'spam').length,
+      outdated: reports.filter((r: Report) => r.type === 'outdated').length
     }
   }
 
@@ -345,76 +279,83 @@ export default function ReportsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Data</TableHead>
-                <TableHead>Usuário</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Descrição</TableHead>
-                <TableHead>Responsável</TableHead>
-                <TableHead>Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredReports.map((report) => (
-                <TableRow key={report.id}>
-                  <TableCell>
-                    {new Date(report.created_at).toLocaleDateString('pt-BR')}
-                  </TableCell>
-                  <TableCell>
-                    {report.user ? (
-                      <div>
-                        <p className="font-medium">{report.user.name}</p>
-                        <p className="text-sm text-gray-500">{report.user.email}</p>
-                      </div>
-                    ) : (
-                      <Badge variant="outline">Anônimo</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={`${typeColors[report.type]} text-white`}>
-                      {typeLabels[report.type]}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={`${statusColors[report.status]} text-white`}>
-                      {statusLabels[report.status]}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="max-w-xs">
-                    <p className="truncate">{report.description}</p>
-                  </TableCell>
-                  <TableCell>
-                    {report.assigned_to ? (
-                      <p className="text-sm">{report.assigned_to.name}</p>
-                    ) : (
-                      <Badge variant="outline">Não atribuído</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => viewReportDetails(report)}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openReviewDialog(report)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
+          {isLoading ? (
+            <div className="flex justify-center items-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin" />
+              <span className="ml-2">Carregando relatórios...</span>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Data</TableHead>
+                  <TableHead>Usuário</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Descrição</TableHead>
+                  <TableHead>Responsável</TableHead>
+                  <TableHead>Ações</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredReports.map((report: Report) => (
+                  <TableRow key={report.id}>
+                    <TableCell>
+                      {new Date(report.created_at).toLocaleDateString('pt-BR')}
+                    </TableCell>
+                    <TableCell>
+                      {report.user ? (
+                        <div>
+                          <p className="font-medium">{report.user.name}</p>
+                          <p className="text-sm text-gray-500">{report.user.email}</p>
+                        </div>
+                      ) : (
+                        <Badge variant="outline">Anônimo</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={`${typeColors[report.type]} text-white`}>
+                        {typeLabels[report.type]}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={`${statusColors[report.status]} text-white`}>
+                        {statusLabels[report.status]}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="max-w-xs">
+                      <p className="truncate">{report.description}</p>
+                    </TableCell>
+                    <TableCell>
+                      {report.assigned_to ? (
+                        <p className="text-sm">{report.assigned_to.name}</p>
+                      ) : (
+                        <Badge variant="outline">Não atribuído</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => viewReportDetails(report)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openReviewDialog(report)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 
@@ -530,8 +471,18 @@ export default function ReportsPage() {
             <Button variant="outline" onClick={() => setShowReview(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleReviewSubmit}>
-              Salvar Revisão
+            <Button 
+              onClick={handleReviewSubmit}
+              disabled={updateReportMutation.isPending}
+            >
+              {updateReportMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                'Salvar Revisão'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

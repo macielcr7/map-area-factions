@@ -124,6 +124,54 @@ class ApiClient {
     return response.data
   }
 
+  // Reports methods
+  async getReports(params?: { 
+    status?: string; 
+    type?: string; 
+    page?: number; 
+    limit?: number 
+  }) {
+    const response = await this.client.get('/reports', { params })
+    return response.data
+  }
+
+  async getReport(id: string) {
+    const response = await this.client.get(`/reports/${id}`)
+    return response.data
+  }
+
+  async createReport(reportData: any) {
+    const response = await this.client.post('/reports', reportData)
+    return response.data
+  }
+
+  async updateReport(id: string, reportData: any) {
+    const response = await this.client.put(`/reports/${id}`, reportData)
+    return response.data
+  }
+
+  async deleteReport(id: string) {
+    const response = await this.client.delete(`/reports/${id}`)
+    return response.data
+  }
+
+  // Audit methods
+  async getAuditLogs(params?: { 
+    entity?: string; 
+    action?: string; 
+    user_id?: string; 
+    page?: number; 
+    limit?: number 
+  }) {
+    const response = await this.client.get('/audit', { params })
+    return response.data
+  }
+
+  async getAuditLog(id: string) {
+    const response = await this.client.get(`/audit/${id}`)
+    return response.data
+  }
+
   // Region methods
   async getRegions(params?: { state?: string; city?: string }) {
     const response = await this.client.get('/regions', { params })

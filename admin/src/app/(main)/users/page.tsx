@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from '@/lib/queries'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -22,9 +23,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Users, Plus, Edit, Trash2, Search } from 'lucide-react'
+import { Users, Plus, Edit, Trash2, Search, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 
-// Mock data - replace with real API calls
 type UserRole = 'admin' | 'moderator' | 'collaborator' | 'citizen'
 
 interface User {
@@ -43,41 +44,6 @@ interface UserFormData {
   role: UserRole
 }
 
-const mockUsers: User[] = [
-  {
-    id: '1',
-    name: 'João Silva',
-    email: 'joao@admin.com',
-    role: 'admin',
-    active: true,
-    created_at: '2024-01-15T10:00:00Z'
-  },
-  {
-    id: '2', 
-    name: 'Maria Santos',
-    email: 'maria@moderator.com',
-    role: 'moderator',
-    active: true,
-    created_at: '2024-01-16T11:00:00Z'
-  },
-  {
-    id: '3',
-    name: 'Pedro Oliveira', 
-    email: 'pedro@collaborator.com',
-    role: 'collaborator',
-    active: false,
-    created_at: '2024-01-17T12:00:00Z'
-  },
-  {
-    id: '4',
-    name: 'Ana Costa',
-    email: 'ana@citizen.com', 
-    role: 'citizen',
-    active: true,
-    created_at: '2024-01-18T13:00:00Z'
-  }
-]
-
 const roleColors: Record<UserRole, string> = {
   admin: 'bg-red-500',
   moderator: 'bg-blue-500', 
@@ -93,7 +59,6 @@ const roleLabels: Record<UserRole, string> = {
 }
 
 export default function UsersPage() {
-  const [users, setUsers] = useState<User[]>(mockUsers)
   const [searchTerm, setSearchTerm] = useState('')
   const [roleFilter, setRoleFilter] = useState<UserRole | ''>('')
   const [isCreateOpen, setIsCreateOpen] = useState(false)
@@ -106,47 +71,59 @@ export default function UsersPage() {
     role: 'citizen'
   })
 
-  const filteredUsers = users.filter(user => {
+  // API hooks
+  const { data: usersData, isLoading } = useUsers({ 
+    role: roleFilter || undefined 
+  })
+  const createUserMutation = useCreateUser()
+  const updateUserMutation = useUpdateUser()
+  const deleteUserMutation = useDeleteUser()
+
+  const users = usersData?.data || []
+  
+  const filteredUsers = users.filter((user: User) => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.email.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesRole = !roleFilter || user.role === roleFilter
-    return matchesSearch && matchesRole
+    return matchesSearch
   })
 
-  const handleCreateUser = () => {
-    const { password: _password, ...userData } = formData
-    const newUser: User = {
-      id: Date.now().toString(),
-      ...userData,
-      active: true,
-      created_at: new Date().toISOString(),
+  const handleCreateUser = async () => {
+    try {
+      await createUserMutation.mutateAsync(formData)
+      setIsCreateOpen(false)
+      setFormData({ name: '', email: '', password: '', role: 'citizen' })
+    } catch (error) {
+      // Error handled by mutation
     }
-    setUsers(prev => [...prev, newUser])
-    setIsCreateOpen(false)
-    setFormData({ name: '', email: '', password: '', role: 'citizen' })
   }
 
-  const handleEditUser = () => {
-    if (!selectedUser) {
-      return
+  const handleEditUser = async () => {
+    if (!selectedUser) return
+
+    try {
+      const { password, ...updateData } = formData
+      const dataToUpdate = password ? formData : updateData
+      
+      await updateUserMutation.mutateAsync({ 
+        id: selectedUser.id, 
+        data: dataToUpdate 
+      })
+      setIsEditOpen(false)
+      setSelectedUser(null)
+      setFormData({ name: '', email: '', password: '', role: 'citizen' })
+    } catch (error) {
+      // Error handled by mutation
     }
-
-    const { password: _password, name, email, role } = formData
-
-    setUsers(prev =>
-      prev.map(user =>
-        user.id === selectedUser.id
-          ? { ...user, name, email, role }
-          : user,
-      ),
-    )
-    setIsEditOpen(false)
-    setSelectedUser(null)
-    setFormData({ name: '', email: '', password: '', role: 'citizen' })
   }
 
-  const handleDeleteUser = (userId: string) => {
-    setUsers(prev => prev.filter(user => user.id !== userId))
+  const handleDeleteUser = async (userId: string) => {
+    if (confirm('Tem certeza que deseja remover este usuário?')) {
+      try {
+        await deleteUserMutation.mutateAsync(userId)
+      } catch (error) {
+        // Error handled by mutation
+      }
+    }
   }
 
   const openEditDialog = (user: User) => {
@@ -211,60 +188,72 @@ export default function UsersPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nome</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Função</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Criado em</TableHead>
-                <TableHead>Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredUsers.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell className="font-medium">{user.name}</TableCell>
-                  <TableCell>{user.email}</TableCell>
-                  <TableCell>
-                    <Badge className={`${roleColors[user.role]} text-white`}>
-                      {roleLabels[user.role]}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant="secondary"
-                      className={user.active ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-800'}
-                    >
-                      {user.active ? 'Ativo' : 'Inativo'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {new Date(user.created_at).toLocaleDateString('pt-BR')}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openEditDialog(user)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleDeleteUser(user.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
+          {isLoading ? (
+            <div className="flex justify-center items-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin" />
+              <span className="ml-2">Carregando usuários...</span>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Função</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Criado em</TableHead>
+                  <TableHead>Ações</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredUsers.map((user: User) => (
+                  <TableRow key={user.id}>
+                    <TableCell className="font-medium">{user.name}</TableCell>
+                    <TableCell>{user.email}</TableCell>
+                    <TableCell>
+                      <Badge className={`${roleColors[user.role]} text-white`}>
+                        {roleLabels[user.role]}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant="secondary"
+                        className={user.active ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-800'}
+                      >
+                        {user.active ? 'Ativo' : 'Inativo'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {new Date(user.created_at).toLocaleDateString('pt-BR')}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openEditDialog(user)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleDeleteUser(user.id)}
+                          disabled={deleteUserMutation.isPending}
+                        >
+                          {deleteUserMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 
@@ -326,7 +315,19 @@ export default function UsersPage() {
             <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleCreateUser}>Criar Usuário</Button>
+            <Button 
+              onClick={handleCreateUser}
+              disabled={createUserMutation.isPending}
+            >
+              {createUserMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Criando...
+                </>
+              ) : (
+                'Criar Usuário'
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -361,6 +362,16 @@ export default function UsersPage() {
               />
             </div>
             <div className="grid gap-2">
+              <Label htmlFor="edit-password">Nova Senha (opcional)</Label>
+              <Input
+                id="edit-password"
+                type="password"
+                value={formData.password}
+                onChange={(e) => setFormData({...formData, password: e.target.value})}
+                placeholder="Deixe vazio para manter a senha atual"
+              />
+            </div>
+            <div className="grid gap-2">
               <Label htmlFor="edit-role">Função</Label>
               <select
                 id="edit-role"
@@ -379,7 +390,19 @@ export default function UsersPage() {
             <Button variant="outline" onClick={() => setIsEditOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleEditUser}>Salvar Alterações</Button>
+            <Button 
+              onClick={handleEditUser}
+              disabled={updateUserMutation.isPending}
+            >
+              {updateUserMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                'Salvar Alterações'
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

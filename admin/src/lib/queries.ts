@@ -168,6 +168,95 @@ export function useDeleteGeometry() {
   })
 }
 
+// Reports
+export function useReports(params?: { 
+  status?: string; 
+  type?: string; 
+  page?: number; 
+  limit?: number 
+}) {
+  return useQuery({
+    queryKey: ['reports', params],
+    queryFn: () => apiClient.getReports(params),
+  })
+}
+
+export function useReport(id: string) {
+  return useQuery({
+    queryKey: ['report', id],
+    queryFn: () => apiClient.getReport(id),
+    enabled: !!id,
+  })
+}
+
+export function useCreateReport() {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: apiClient.createReport,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reports'] })
+      toast.success('Relatório criado com sucesso')
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Erro ao criar relatório')
+    },
+  })
+}
+
+export function useUpdateReport() {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => 
+      apiClient.updateReport(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reports'] })
+      toast.success('Relatório atualizado com sucesso')
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Erro ao atualizar relatório')
+    },
+  })
+}
+
+export function useDeleteReport() {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: apiClient.deleteReport,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reports'] })
+      toast.success('Relatório removido com sucesso')
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Erro ao remover relatório')
+    },
+  })
+}
+
+// Audit
+export function useAuditLogs(params?: { 
+  entity?: string; 
+  action?: string; 
+  user_id?: string; 
+  page?: number; 
+  limit?: number 
+}) {
+  return useQuery({
+    queryKey: ['audit', params],
+    queryFn: () => apiClient.getAuditLogs(params),
+  })
+}
+
+export function useAuditLog(id: string) {
+  return useQuery({
+    queryKey: ['audit-log', id],
+    queryFn: () => apiClient.getAuditLog(id),
+    enabled: !!id,
+  })
+}
+
 // Regions
 export function useRegions(params?: { state?: string; city?: string }) {
   return useQuery({

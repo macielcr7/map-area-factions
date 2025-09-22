@@ -1,11 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { useFactions, useCreateFaction, useUpdateFaction } from '@/lib/queries'
+import { useFactions, useCreateFaction, useUpdateFaction, useDeleteFaction } from '@/lib/queries'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Plus, Palette, Edit2, Trash2 } from 'lucide-react'
+import { Plus, Palette, Edit2, Trash2, Loader2 } from 'lucide-react'
 import { FactionDialog } from '@/components/factions/faction-dialog'
 
 export default function FactionsPage() {
@@ -15,6 +15,7 @@ export default function FactionsPage() {
   const { data: factionsData, isLoading } = useFactions()
   const createFactionMutation = useCreateFaction()
   const updateFactionMutation = useUpdateFaction()
+  const deleteFactionMutation = useDeleteFaction()
 
   const handleCreateFaction = (factionData: any) => {
     createFactionMutation.mutate(factionData, {
@@ -38,55 +39,13 @@ export default function FactionsPage() {
     }
   }
 
-  const mockFactions = [
-    {
-      id: '1',
-      name: 'Primeiro Comando da Capital',
-      acronym: 'PCC',
-      color_hex: '#ff0000',
-      active: true,
-      display_priority: 1,
-      description: 'Facção criminosa originária do sistema prisional paulista'
-    },
-    {
-      id: '2',
-      name: 'Comando Vermelho',
-      acronym: 'CV',
-      color_hex: '#cc0000',
-      active: true,
-      display_priority: 2,
-      description: 'Organização criminosa do Rio de Janeiro'
-    },
-    {
-      id: '3',
-      name: 'Terceiro Comando Puro',
-      acronym: 'TCP',
-      color_hex: '#800080',
-      active: true,
-      display_priority: 3,
-      description: 'Facção dissidente do Comando Vermelho'
-    },
-    {
-      id: '4',
-      name: 'Guardiões do Estado',
-      acronym: 'GDE',
-      color_hex: '#0000ff',
-      active: true,
-      display_priority: 4,
-      description: 'Facção local do Ceará'
-    },
-    {
-      id: '5',
-      name: 'Família do Norte',
-      acronym: 'FDN',
-      color_hex: '#008000',
-      active: false,
-      display_priority: 5,
-      description: 'Facção do Amazonas'
+  const handleDeleteFaction = (factionId: string) => {
+    if (confirm('Tem certeza que deseja deletar esta facção?')) {
+      deleteFactionMutation.mutate(factionId)
     }
-  ]
+  }
 
-  const factions = factionsData?.data || mockFactions
+  const factions = factionsData?.data || []
 
   return (
     <div className="space-y-6">
@@ -100,7 +59,10 @@ export default function FactionsPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {isLoading ? (
-          <div className="col-span-full text-center">Carregando...</div>
+          <div className="col-span-full flex justify-center items-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin" />
+            <span className="ml-2">Carregando facções...</span>
+          </div>
         ) : (
           factions?.map((faction: any) => (
             <Card key={faction.id} className="cursor-pointer hover:shadow-lg transition-shadow">
@@ -125,10 +87,6 @@ export default function FactionsPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  <p className="text-sm text-gray-600">
-                    {faction.description || 'Sem descrição'}
-                  </p>
-                  
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Prioridade:</span>
                     <span className="font-medium">#{faction.display_priority}</span>
@@ -159,11 +117,16 @@ export default function FactionsPage() {
                       Editar
                     </Button>
                     <Button
-                      variant="outline"
+                      variant="destructive"
                       size="sm"
-                      disabled
+                      onClick={() => handleDeleteFaction(faction.id)}
+                      disabled={deleteFactionMutation.isPending}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      {deleteFactionMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
                     </Button>
                   </div>
                 </div>
