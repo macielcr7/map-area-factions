@@ -339,7 +339,7 @@ export default function MapsPage() {
                       />
                       <span className="text-sm font-medium">{faction.name}</span>
                       <Badge variant="outline" className="text-xs">
-                        {stats.by_faction.find(f => f.id === faction.id)?.count || 0}
+                        {stats.by_faction.find((f: { id: any }) => f.id === faction.id)?.count || 0}
                       </Badge>
                     </div>
                     <Switch 

@@ -20,6 +20,7 @@ export function useCreateUser() {
       toast.success('Usuário criado com sucesso')
     },
     onError: (error: any) => {
+      console.log(error)
       toast.error(error.response?.data?.message || 'Erro ao criar usuário')
     },
   })
@@ -105,6 +106,7 @@ export function useDeleteFaction() {
       toast.success('Facção removida com sucesso')
     },
     onError: (error: any) => {
+      console.log(error)
       toast.error(error.response?.data?.message || 'Erro ao remover facção')
     },
   })
