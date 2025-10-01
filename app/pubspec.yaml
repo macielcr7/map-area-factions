@@ -1,0 +1,158 @@
+name: map_factions_app
+description: "Map Area Factions - Aplicativo para visualização de áreas dominadas por facções"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+  flutter: ">=3.16.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # Core
+  cupertino_icons: ^1.0.6
+  
+  # Estado Global
+  flutter_riverpod: ^2.4.9
+  riverpod_annotation: ^2.3.3
+  
+  # HTTP & Networking
+  dio: ^5.4.0
+  retrofit: ^4.0.3
+  json_annotation: ^4.8.1
+  socket_io_client: ^2.0.3+1
+  
+  # Mapas & Localização
+  mapbox_maps_flutter: ^1.0.0
+  google_maps_flutter: ^2.5.3
+  geolocator: ^10.1.0
+  geocoding: ^2.1.1
+  permission_handler: ^11.2.0
+  
+  # Navegação
+  go_router: ^12.1.3
+  
+  # Cache & Storage
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  shared_preferences: ^2.2.2
+  sqflite: ^2.3.0
+  path_provider: ^2.1.2
+  
+  # UI & Animations
+  flutter_animate: ^4.5.0
+  flutter_staggered_animations: ^1.1.1
+  cached_network_image: ^3.3.1
+  flutter_svg: ^2.0.9
+  lottie: ^2.7.0
+  shimmer: ^3.0.0
+  
+  # Forms & Validation
+  flutter_form_builder: ^9.1.1
+  form_builder_validators: ^9.1.0
+  
+  # Utils
+  intl: ^0.19.0
+  timeago: ^3.6.1
+  url_launcher: ^6.2.2
+  package_info_plus: ^4.2.0
+  device_info_plus: ^9.1.2
+  connectivity_plus: ^5.0.2
+  
+  # Security & Auth
+  local_auth: ^2.1.7
+  flutter_secure_storage: ^9.0.0
+  crypto: ^3.0.3
+  
+  # Push Notifications
+  firebase_core: ^2.24.2
+  firebase_messaging: ^14.7.9
+  flutter_local_notifications: ^16.3.2
+  
+  # Payments
+  mercado_pago_mobile_checkout: ^0.1.5
+  
+  # Analytics & Crash Reporting
+  firebase_analytics: ^10.7.4
+  firebase_crashlytics: ^3.4.8
+  
+  # Development
+  logger: ^2.0.2+1
+  uuid: ^4.2.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+  
+  # Code Generation
+  build_runner: ^2.4.7
+  riverpod_generator: ^2.3.9
+  retrofit_generator: ^7.0.8
+  json_serializable: ^6.7.1
+  hive_generator: ^2.0.1
+  
+  # Linting
+  flutter_lints: ^3.0.1
+  very_good_analysis: ^5.1.0
+  
+  # Testing
+  mockito: ^5.4.4
+  bloc_test: ^9.1.5
+  mocktail: ^1.0.3
+  
+  # Assets
+  flutter_launcher_icons: ^0.13.1
+  flutter_native_splash: ^2.3.8
+
+# Assets
+flutter:
+  uses-material-design: true
+  
+  assets:
+    - assets/images/
+    - assets/icons/
+    - assets/lottie/
+    - assets/data/
+  
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Regular.ttf
+        - asset: assets/fonts/Inter-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Inter-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Inter-Bold.ttf
+          weight: 700
+
+# Platform-specific configurations
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/icons/app_icon.png"
+  min_sdk_android: 21
+  web:
+    generate: true
+    image_path: "assets/icons/app_icon.png"
+  windows:
+    generate: true
+    image_path: "assets/icons/app_icon.png"
+  macos:
+    generate: true
+    image_path: "assets/icons/app_icon.png"
+
+flutter_native_splash:
+  color: "#ffffff"
+  image: "assets/icons/splash_icon.png"
+  color_dark: "#121212"
+  image_dark: "assets/icons/splash_icon_dark.png"
+  android_12:
+    image: "assets/icons/splash_icon.png"
+    color: "#ffffff"
+    image_dark: "assets/icons/splash_icon_dark.png"
+    color_dark: "#121212"

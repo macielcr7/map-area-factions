@@ -1,0 +1,247 @@
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDEs and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Dependency directories
+node_modules/
+
+# Optional npm cache directory
+.npm
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# dotenv environment variables file
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Go
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+backend/bin/
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+coverage.html
+
+# Go workspace file
+go.work
+
+# Build output
+backend/bin/
+backend/dist/
+
+# Go module cache
+go.sum
+
+# Next.js
+admin/.next/
+admin/out/
+admin/build/
+admin/dist/
+
+# Flutter
+app/.dart_tool/
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+app/.packages
+app/.pub-cache/
+app/.pub/
+app/build/
+app/flutter_*.png
+app/flutter_*.ipa
+app/flutter_*.apk
+
+# Flutter/Dart/Pub related
+app/**/doc/api/
+app/**/ios/Flutter/.last_build_id
+app/**/ios/Flutter/App.framework
+app/**/ios/Flutter/Flutter.framework
+app/**/ios/Flutter/Flutter.podspec
+app/**/ios/Flutter/Generated.xcconfig
+app/**/ios/Flutter/app.flx
+app/**/ios/Flutter/app.zip
+app/**/ios/Flutter/flutter_assets/
+app/**/ios/Flutter/flutter_export_environment.sh
+app/**/ios/ServiceDefinitions.json
+app/**/ios/Runner/GeneratedPluginRegistrant.*
+
+# Android
+app/**/android/app/debug
+app/**/android/app/profile
+app/**/android/app/release
+app/**/android/local.properties
+app/**/android/**/gradle-wrapper.jar
+app/**/android/.gradle
+app/**/android/captures/
+app/**/android/gradlew
+app/**/android/gradlew.bat
+app/**/android/key.properties
+
+# iOS
+app/**/ios/**/*.mode1v3
+app/**/ios/**/*.mode2v3
+app/**/ios/**/*.moved-aside
+app/**/ios/**/*.pbxuser
+app/**/ios/**/*.perspectivev3
+app/**/ios/**/*sync/
+app/**/ios/**/.sconsign.dblite
+app/**/ios/**/.tags*
+app/**/ios/**/.vagrant/
+app/**/ios/**/DerivedData/
+app/**/ios/**/Icon?
+app/**/ios/**/Pods/
+app/**/ios/**/.symlinks/
+app/**/ios/**/profile
+app/**/ios/**/xcuserdata
+app/**/ios/.generated/
+app/**/ios/Flutter/App.framework
+app/**/ios/Flutter/Flutter.framework
+app/**/ios/Flutter/Flutter.podspec
+app/**/ios/Flutter/Generated.xcconfig
+app/**/ios/Flutter/app.flx
+app/**/ios/Flutter/app.zip
+app/**/ios/Flutter/flutter_assets/
+app/**/ios/Flutter/flutter_export_environment.sh
+app/**/ios/ServiceDefinitions.json
+app/**/ios/Runner/GeneratedPluginRegistrant.*
+
+# Web
+app/web/flutter_service_worker.js
+
+# Docker
+*.log
+
+# Terraform
+infra/terraform/.terraform/
+infra/terraform/.terraform.lock.hcl
+infra/terraform/*.tfstate
+infra/terraform/*.tfstate.*
+infra/terraform/*.tfplan
+infra/terraform/*.tfvars
+!infra/terraform/environments/*.tfvars.example
+infra/terraform/crash.log
+infra/terraform/crash.*.log
+
+# AWS
+.aws/
+
+# Kubernetes
+*.kubeconfig
+
+# Secrets and keys
+*.pem
+*.key
+*.crt
+*.p12
+*.jks
+google-services.json
+GoogleService-Info.plist
+
+# Backups
+*.backup
+*.bak
+*.sql.gz
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+
+# Cache
+.cache/
+.next/cache/
+
+# Test coverage
+coverage/
+*.lcov
+
+# Documentation build
+docs/_build/
+docs/build/
+
+# Local development
+local/
+dev/
+scratch/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Redis dump
+dump.rdb
+
+# Production configs (examples are OK)
+*.prod.yaml
+*.prod.yml
+*.prod.json
+!*.prod.example.*
+
+# Local overrides
+docker-compose.override.yml
+.env.override
+
+# Generated files
+**/generated/
+**/*.generated.dart
+**/*.g.dart
+**/*.freezed.dart
+
+# Package manager lockfiles that should be committed
+!package-lock.json
+!yarn.lock
+!pubspec.lock
+
+# But ignore in root (workspace file)
+/package-lock.json
+/yarn.lock
+
+# Misc
+*.tsbuildinfo
+.eslintcache
+
+admin/standalone-build/
