@@ -22,6 +22,7 @@ DROP FUNCTION IF EXISTS update_updated_at_column();
 -- Drop tables (in reverse order due to foreign keys)
 DROP TABLE IF EXISTS reports;
 DROP TABLE IF EXISTS audit_logs;
+DROP TABLE IF EXISTS system_settings;
 DROP TABLE IF EXISTS subscriptions;
 DROP TABLE IF EXISTS incidents;
 DROP TABLE IF EXISTS geometry_versions;

@@ -1,24 +1,26 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
-import { 
-  Settings, 
-  Globe, 
-  Shield, 
-  Bell, 
-  Palette, 
+import {
+  Settings,
+  Globe,
+  Shield,
+  Bell,
+  Palette,
   Database,
   MapPin,
   Save,
-  RefreshCw
+  RefreshCw,
+  Loader2,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { useSettings, useUpdateSettings } from '@/lib/queries'
 
 interface SystemSettings {
   general: {
@@ -53,101 +55,113 @@ interface SystemSettings {
   }
 }
 
+const DEFAULT_SETTINGS: SystemSettings = {
+  general: {
+    site_name: '',
+    site_description: '',
+    maintenance_mode: false,
+    timezone: 'America/Sao_Paulo',
+    default_language: 'pt-BR',
+  },
+  map: {
+    default_style: '',
+    default_zoom: 10,
+    default_center_lat: -3.7319,
+    default_center_lng: -38.5267,
+    max_zoom: 18,
+    min_zoom: 8,
+  },
+  security: {
+    session_timeout_minutes: 480,
+    require_email_verification: true,
+    enable_two_factor: false,
+    password_min_length: 8,
+    enable_audit_logging: true,
+  },
+  notifications: {
+    email_enabled: true,
+    email_smtp_host: '',
+    email_smtp_port: 587,
+    push_enabled: false,
+    webhook_url: '',
+    notify_new_reports: true,
+  },
+}
+
 export default function SettingsPage() {
-  const [isLoading, setIsLoading] = useState(false)
-  const [settings, setSettings] = useState<SystemSettings>({
-    general: {
-      site_name: 'Map Area Factions',
-      site_description: 'Sistema de mapeamento de áreas por facção',
-      maintenance_mode: false,
-      timezone: 'America/Sao_Paulo',
-      default_language: 'pt-BR'
-    },
-    map: {
-      default_style: 'mapbox://styles/mapbox/streets-v11',
-      default_zoom: 10,
-      default_center_lat: -3.7319,
-      default_center_lng: -38.5267,
-      max_zoom: 18,
-      min_zoom: 8
-    },
-    security: {
-      session_timeout_minutes: 480,
-      require_email_verification: true,
-      enable_two_factor: false,
-      password_min_length: 8,
-      enable_audit_logging: true
-    },
-    notifications: {
-      email_enabled: true,
-      email_smtp_host: 'smtp.gmail.com',
-      email_smtp_port: 587,
-      push_enabled: false,
-      webhook_url: '',
-      notify_new_reports: true
+  const { data, isLoading, isFetching, isError, error } = useSettings()
+  const updateSettingsMutation = useUpdateSettings()
+
+  const [settings, setSettings] = useState<SystemSettings | null>(null)
+
+  useEffect(() => {
+    if (data?.settings) {
+      setSettings(data.settings as SystemSettings)
     }
-  })
+  }, [data?.settings])
+
+  useEffect(() => {
+    if (!isError || !error) {
+      return
+    }
+    toast.error('Erro ao carregar configurações')
+    // eslint-disable-next-line no-console
+    console.error(error)
+  }, [isError, error])
+
+  const isSaving = updateSettingsMutation.isPending
+  const isBusy = isLoading || isFetching || !settings
+
+  const dirtyStateHash = useMemo(() => JSON.stringify(settings), [settings])
+  const originalStateHash = useMemo(() => JSON.stringify(data?.settings), [data?.settings])
+  const isDirty = dirtyStateHash !== originalStateHash
 
   const handleSave = async () => {
-    setIsLoading(true)
+    if (!settings) {
+      return
+    }
+
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      toast.success('Configurações salvas com sucesso')
-    } catch (error) {
-      toast.error('Erro ao salvar configurações')
-    } finally {
-      setIsLoading(false)
+      await updateSettingsMutation.mutateAsync(settings)
+    } catch (mutationError) {
+      // eslint-disable-next-line no-console
+      console.error(mutationError)
     }
   }
 
   const handleReset = () => {
-    if (confirm('Tem certeza que deseja resetar todas as configurações?')) {
-      // Reset to default values
-      setSettings({
-        general: {
-          site_name: 'Map Area Factions',
-          site_description: 'Sistema de mapeamento de áreas por facção',
-          maintenance_mode: false,
-          timezone: 'America/Sao_Paulo',
-          default_language: 'pt-BR'
-        },
-        map: {
-          default_style: 'mapbox://styles/mapbox/streets-v11',
-          default_zoom: 10,
-          default_center_lat: -3.7319,
-          default_center_lng: -38.5267,
-          max_zoom: 18,
-          min_zoom: 8
-        },
-        security: {
-          session_timeout_minutes: 480,
-          require_email_verification: true,
-          enable_two_factor: false,
-          password_min_length: 8,
-          enable_audit_logging: true
-        },
-        notifications: {
-          email_enabled: true,
-          email_smtp_host: 'smtp.gmail.com',
-          email_smtp_port: 587,
-          push_enabled: false,
-          webhook_url: '',
-          notify_new_reports: true
-        }
-      })
-      toast.success('Configurações resetadas')
+    if (!data?.settings) {
+      setSettings(DEFAULT_SETTINGS)
+      return
     }
+
+    setSettings(data.settings as SystemSettings)
+    toast.success('Configurações restauradas')
   }
 
   const updateSetting = (section: keyof SystemSettings, key: string, value: any) => {
-    setSettings(prev => ({
-      ...prev,
-      [section]: {
-        ...prev[section],
-        [key]: value
+    setSettings((prev) => {
+      if (!prev) {
+        return prev
       }
-    }))
+      return {
+        ...prev,
+        [section]: {
+          ...prev[section],
+          [key]: value,
+        },
+      }
+    })
+  }
+
+  if (isBusy) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin" /> Carregando configurações...
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -155,13 +169,22 @@ export default function SettingsPage() {
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Configurações do Sistema</h1>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleReset}>
+          <Button variant="outline" onClick={handleReset} disabled={isSaving}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Resetar
           </Button>
-          <Button onClick={handleSave} disabled={isLoading}>
-            <Save className="mr-2 h-4 w-4" />
-            {isLoading ? 'Salvando...' : 'Salvar'}
+          <Button onClick={handleSave} disabled={isSaving || !isDirty}>
+            {isSaving ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Salvando...
+              </>
+            ) : (
+              <>
+                <Save className="mr-2 h-4 w-4" />
+                Salvar
+              </>
+            )}
           </Button>
         </div>
       </div>
@@ -180,7 +203,7 @@ export default function SettingsPage() {
               <Label htmlFor="site_name">Nome do Site</Label>
               <Input
                 id="site_name"
-                value={settings.general.site_name}
+                value={settings?.general.site_name ?? ''}
                 onChange={(e) => updateSetting('general', 'site_name', e.target.value)}
               />
             </div>
@@ -188,7 +211,7 @@ export default function SettingsPage() {
               <Label htmlFor="timezone">Fuso Horário</Label>
               <select
                 id="timezone"
-                value={settings.general.timezone}
+                value={settings?.general.timezone ?? ''}
                 onChange={(e) => updateSetting('general', 'timezone', e.target.value)}
                 className="w-full p-2 border rounded-md"
               >
@@ -199,24 +222,26 @@ export default function SettingsPage() {
               </select>
             </div>
           </div>
-          
           <div className="space-y-2">
-            <Label htmlFor="site_description">Descrição do Site</Label>
+            <Label htmlFor="site_description">Descrição</Label>
             <Textarea
               id="site_description"
-              value={settings.general.site_description}
+              value={settings?.general.site_description ?? ''}
               onChange={(e) => updateSetting('general', 'site_description', e.target.value)}
-              rows={3}
+              placeholder="Descrição exibida na interface administrativa"
             />
           </div>
-
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center justify-between rounded border p-3">
+            <div>
+              <p className="font-medium">Modo de Manutenção</p>
+              <p className="text-sm text-muted-foreground">
+                Controla o acesso público à aplicação.
+              </p>
+            </div>
             <Switch
-              id="maintenance_mode"
-              checked={settings.general.maintenance_mode}
+              checked={settings?.general.maintenance_mode ?? false}
               onCheckedChange={(checked) => updateSetting('general', 'maintenance_mode', checked)}
             />
-            <Label htmlFor="maintenance_mode">Modo de Manutenção</Label>
           </div>
         </CardContent>
       </Card>
@@ -226,69 +251,63 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle className="flex items-center">
             <MapPin className="mr-2 h-5 w-5" />
-            Configurações do Mapa
+            Configurações de Mapa
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="map_style">Estilo Padrão do Mapa</Label>
-            <select
-              id="map_style"
-              value={settings.map.default_style}
-              onChange={(e) => updateSetting('map', 'default_style', e.target.value)}
-              className="w-full p-2 border rounded-md"
-            >
-              <option value="mapbox://styles/mapbox/streets-v11">Streets</option>
-              <option value="mapbox://styles/mapbox/satellite-v9">Satellite</option>
-              <option value="mapbox://styles/mapbox/light-v10">Light</option>
-              <option value="mapbox://styles/mapbox/dark-v10">Dark</option>
-            </select>
-          </div>
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="default_center_lat">Latitude Central Padrão</Label>
+              <Label htmlFor="map_style">Estilo do Mapbox</Label>
               <Input
-                id="default_center_lat"
-                type="number"
-                step="0.000001"
-                value={settings.map.default_center_lat}
-                onChange={(e) => updateSetting('map', 'default_center_lat', parseFloat(e.target.value))}
+                id="map_style"
+                value={settings?.map.default_style ?? ''}
+                onChange={(e) => updateSetting('map', 'default_style', e.target.value)}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="default_center_lng">Longitude Central Padrão</Label>
-              <Input
-                id="default_center_lng"
-                type="number"
-                step="0.000001"
-                value={settings.map.default_center_lng}
-                onChange={(e) => updateSetting('map', 'default_center_lng', parseFloat(e.target.value))}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="default_zoom">Zoom Padrão</Label>
               <Input
                 id="default_zoom"
                 type="number"
-                min="1"
-                max="20"
-                value={settings.map.default_zoom}
-                onChange={(e) => updateSetting('map', 'default_zoom', parseInt(e.target.value))}
+                min={0}
+                max={22}
+                step={0.1}
+                value={settings?.map.default_zoom ?? 0}
+                onChange={(e) => updateSetting('map', 'default_zoom', Number(e.target.value))}
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="center_lat">Latitude Padrão</Label>
+              <Input
+                id="center_lat"
+                type="number"
+                step={0.000001}
+                value={settings?.map.default_center_lat ?? 0}
+                onChange={(e) => updateSetting('map', 'default_center_lat', Number(e.target.value))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="center_lng">Longitude Padrão</Label>
+              <Input
+                id="center_lng"
+                type="number"
+                step={0.000001}
+                value={settings?.map.default_center_lng ?? 0}
+                onChange={(e) => updateSetting('map', 'default_center_lng', Number(e.target.value))}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="min_zoom">Zoom Mínimo</Label>
               <Input
                 id="min_zoom"
                 type="number"
-                min="1"
-                max="20"
-                value={settings.map.min_zoom}
-                onChange={(e) => updateSetting('map', 'min_zoom', parseInt(e.target.value))}
+                min={0}
+                max={22}
+                step={0.1}
+                value={settings?.map.min_zoom ?? 0}
+                onChange={(e) => updateSetting('map', 'min_zoom', Number(e.target.value))}
               />
             </div>
             <div className="space-y-2">
@@ -296,10 +315,11 @@ export default function SettingsPage() {
               <Input
                 id="max_zoom"
                 type="number"
-                min="1"
-                max="20"
-                value={settings.map.max_zoom}
-                onChange={(e) => updateSetting('map', 'max_zoom', parseInt(e.target.value))}
+                min={0}
+                max={22}
+                step={0.1}
+                value={settings?.map.max_zoom ?? 0}
+                onChange={(e) => updateSetting('map', 'max_zoom', Number(e.target.value))}
               />
             </div>
           </div>
@@ -311,178 +331,150 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle className="flex items-center">
             <Shield className="mr-2 h-5 w-5" />
-            Configurações de Segurança
+            Segurança
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="session_timeout">Timeout da Sessão (minutos)</Label>
+              <Label htmlFor="session_timeout">Expiração de Sessão (min)</Label>
               <Input
                 id="session_timeout"
                 type="number"
-                min="30"
-                max="1440"
-                value={settings.security.session_timeout_minutes}
-                onChange={(e) => updateSetting('security', 'session_timeout_minutes', parseInt(e.target.value))}
+                min={5}
+                max={1440}
+                value={settings?.security.session_timeout_minutes ?? 0}
+                onChange={(e) =>
+                  updateSetting('security', 'session_timeout_minutes', Number(e.target.value))
+                }
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password_min_length">Tamanho Mínimo da Senha</Label>
+              <Label htmlFor="password_length">Tamanho mínimo da senha</Label>
               <Input
-                id="password_min_length"
+                id="password_length"
                 type="number"
-                min="6"
-                max="20"
-                value={settings.security.password_min_length}
-                onChange={(e) => updateSetting('security', 'password_min_length', parseInt(e.target.value))}
+                min={6}
+                max={64}
+                value={settings?.security.password_min_length ?? 0}
+                onChange={(e) =>
+                  updateSetting('security', 'password_min_length', Number(e.target.value))
+                }
               />
             </div>
           </div>
-
-          <div className="space-y-3">
-            <div className="flex items-center space-x-2">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="flex items-center justify-between rounded border p-3">
+              <div>
+                <p className="font-medium">Verificação por email</p>
+                <p className="text-sm text-muted-foreground">Obrigar confirmação de email no cadastro.</p>
+              </div>
               <Switch
-                id="email_verification"
-                checked={settings.security.require_email_verification}
-                onCheckedChange={(checked) => updateSetting('security', 'require_email_verification', checked)}
+                checked={settings?.security.require_email_verification ?? false}
+                onCheckedChange={(checked) =>
+                  updateSetting('security', 'require_email_verification', checked)
+                }
               />
-              <Label htmlFor="email_verification">Exigir Verificação de Email</Label>
             </div>
-            
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center justify-between rounded border p-3">
+              <div>
+                <p className="font-medium">Autenticação em duas etapas</p>
+                <p className="text-sm text-muted-foreground">Exigir 2FA para usuários privilegiados.</p>
+              </div>
               <Switch
-                id="two_factor"
-                checked={settings.security.enable_two_factor}
+                checked={settings?.security.enable_two_factor ?? false}
                 onCheckedChange={(checked) => updateSetting('security', 'enable_two_factor', checked)}
               />
-              <Label htmlFor="two_factor">Habilitar Autenticação de Dois Fatores</Label>
             </div>
-            
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center justify-between rounded border p-3">
+              <div>
+                <p className="font-medium">Registro de auditoria</p>
+                <p className="text-sm text-muted-foreground">Salvar operações críticas no log.</p>
+              </div>
               <Switch
-                id="audit_logging"
-                checked={settings.security.enable_audit_logging}
+                checked={settings?.security.enable_audit_logging ?? false}
                 onCheckedChange={(checked) => updateSetting('security', 'enable_audit_logging', checked)}
               />
-              <Label htmlFor="audit_logging">Habilitar Log de Auditoria</Label>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Notification Settings */}
+      {/* Notifications */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center">
             <Bell className="mr-2 h-5 w-5" />
-            Configurações de Notificação
+            Notificações
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center space-x-2 mb-4">
-            <Switch
-              id="email_enabled"
-              checked={settings.notifications.email_enabled}
-              onCheckedChange={(checked) => updateSetting('notifications', 'email_enabled', checked)}
-            />
-            <Label htmlFor="email_enabled">Habilitar Notificações por Email</Label>
-          </div>
-
-          {settings.notifications.email_enabled && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="smtp_host">Servidor SMTP</Label>
-                <Input
-                  id="smtp_host"
-                  value={settings.notifications.email_smtp_host}
-                  onChange={(e) => updateSetting('notifications', 'email_smtp_host', e.target.value)}
-                />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex items-center justify-between rounded border p-3">
+              <div>
+                <p className="font-medium">Notificações por Email</p>
+                <p className="text-sm text-muted-foreground">Enviar alertas por email para a equipe.</p>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="smtp_port">Porta SMTP</Label>
-                <Input
-                  id="smtp_port"
-                  type="number"
-                  value={settings.notifications.email_smtp_port}
-                  onChange={(e) => updateSetting('notifications', 'email_smtp_port', parseInt(e.target.value))}
-                />
-              </div>
-            </div>
-          )}
-
-          <div className="space-y-3">
-            <div className="flex items-center space-x-2">
               <Switch
-                id="push_enabled"
-                checked={settings.notifications.push_enabled}
+                checked={settings?.notifications.email_enabled ?? false}
+                onCheckedChange={(checked) => updateSetting('notifications', 'email_enabled', checked)}
+              />
+            </div>
+            <div className="flex items-center justify-between rounded border p-3">
+              <div>
+                <p className="font-medium">Notificações Push</p>
+                <p className="text-sm text-muted-foreground">Habilitar notificações push no app.</p>
+              </div>
+              <Switch
+                checked={settings?.notifications.push_enabled ?? false}
                 onCheckedChange={(checked) => updateSetting('notifications', 'push_enabled', checked)}
               />
-              <Label htmlFor="push_enabled">Habilitar Notificações Push</Label>
-            </div>
-            
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="notify_new_reports"
-                checked={settings.notifications.notify_new_reports}
-                onCheckedChange={(checked) => updateSetting('notifications', 'notify_new_reports', checked)}
-              />
-              <Label htmlFor="notify_new_reports">Notificar Novos Relatórios</Label>
             </div>
           </div>
-
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="smtp_host">Servidor SMTP</Label>
+              <Input
+                id="smtp_host"
+                value={settings?.notifications.email_smtp_host ?? ''}
+                onChange={(e) => updateSetting('notifications', 'email_smtp_host', e.target.value)}
+                placeholder="smtp.exemplo.com"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="smtp_port">Porta SMTP</Label>
+              <Input
+                id="smtp_port"
+                type="number"
+                min={1}
+                max={65535}
+                value={settings?.notifications.email_smtp_port ?? 0}
+                onChange={(e) =>
+                  updateSetting('notifications', 'email_smtp_port', Number(e.target.value))
+                }
+              />
+            </div>
+          </div>
           <div className="space-y-2">
-            <Label htmlFor="webhook_url">URL do Webhook (opcional)</Label>
+            <Label htmlFor="webhook_url">Webhook</Label>
             <Input
               id="webhook_url"
-              type="url"
-              placeholder="https://api.exemplo.com/webhook"
-              value={settings.notifications.webhook_url}
+              value={settings?.notifications.webhook_url ?? ''}
               onChange={(e) => updateSetting('notifications', 'webhook_url', e.target.value)}
+              placeholder="https://hooks.exemplo.com"
             />
           </div>
-        </CardContent>
-      </Card>
-
-      {/* System Status */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Database className="mr-2 h-5 w-5" />
-            Status do Sistema
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-green-50 p-4 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-green-600">Banco de Dados</p>
-                  <p className="text-2xl font-bold text-green-800">Online</p>
-                </div>
-                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-              </div>
+          <div className="flex items-center justify-between rounded border p-3">
+            <div>
+              <p className="font-medium">Avisar novo relatório</p>
+              <p className="text-sm text-muted-foreground">Enviar alerta quando um novo relatório for criado.</p>
             </div>
-            
-            <div className="bg-green-50 p-4 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-green-600">Redis Cache</p>
-                  <p className="text-2xl font-bold text-green-800">Online</p>
-                </div>
-                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-              </div>
-            </div>
-            
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-blue-600">WebSocket</p>
-                  <p className="text-2xl font-bold text-blue-800">Ativo</p>
-                </div>
-                <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-              </div>
-            </div>
+            <Switch
+              checked={settings?.notifications.notify_new_reports ?? false}
+              onCheckedChange={(checked) =>
+                updateSetting('notifications', 'notify_new_reports', checked)
+              }
+            />
           </div>
         </CardContent>
       </Card>

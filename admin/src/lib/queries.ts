@@ -3,7 +3,7 @@ import { apiClient } from './api'
 import { toast } from 'sonner'
 
 // Users
-export function useUsers(params?: { page?: number; limit?: number; role?: string }) {
+export function useUsers(params?: { page?: number; limit?: number; role?: string; search?: string }) {
   return useQuery({
     queryKey: ['users', params],
     queryFn: () => apiClient.getUsers(params),
@@ -14,7 +14,7 @@ export function useCreateUser() {
   const queryClient = useQueryClient()
   
   return useMutation({
-    mutationFn: apiClient.createUser,
+    mutationFn: (userData: any) => apiClient.createUser(userData),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] })
       toast.success('Usuário criado com sucesso')
@@ -69,7 +69,7 @@ export function useCreateFaction() {
   const queryClient = useQueryClient()
   
   return useMutation({
-    mutationFn: apiClient.createFaction,
+    mutationFn: (data: any) => apiClient.createFaction(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['factions'] })
       toast.success('Facção criada com sucesso')
@@ -128,7 +128,7 @@ export function useCreateGeometry() {
   const queryClient = useQueryClient()
   
   return useMutation({
-    mutationFn: apiClient.createGeometry,
+    mutationFn: (data: any) => apiClient.createGeometry(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['geometries'] })
       toast.success('Geometria criada com sucesso')
@@ -195,7 +195,7 @@ export function useCreateReport() {
   const queryClient = useQueryClient()
   
   return useMutation({
-    mutationFn: apiClient.createReport,
+    mutationFn: (data: any) => apiClient.createReport(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['reports'] })
       toast.success('Relatório criado com sucesso')
@@ -264,5 +264,28 @@ export function useRegions(params?: { state?: string; city?: string }) {
   return useQuery({
     queryKey: ['regions', params],
     queryFn: () => apiClient.getRegions(params),
+  })
+}
+
+// Settings
+export function useSettings() {
+  return useQuery({
+    queryKey: ['settings'],
+    queryFn: () => apiClient.getSettings(),
+  })
+}
+
+export function useUpdateSettings() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (payload: any) => apiClient.updateSettings(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settings'] })
+      toast.success('Configurações salvas com sucesso')
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Erro ao atualizar configurações')
+    },
   })
 }

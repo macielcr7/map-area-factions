@@ -1,171 +1,190 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from '@/components/ui/table'
-import { 
-  Activity, 
-  Search, 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  Activity,
+  Search,
   Calendar,
   User,
   Database,
-  Eye
+  Eye,
+  Loader2,
 } from 'lucide-react'
-
-// Mock audit data - replace with real API calls
-type AuditLogAction = 'create' | 'update' | 'delete' | 'read'
-type AuditLogEntity = 'user' | 'faction' | 'geometry' | 'report'
+import { useAuditLogs } from '@/lib/queries'
+import { useDebounce } from '@/lib/use-debounce'
+import { format } from 'date-fns'
+import ptBR from 'date-fns/locale/pt-BR'
 
 interface AuditLog {
   id: string
-  user: { name: string; email: string }
-  entity: AuditLogEntity
-  entity_id: string
-  action: AuditLogAction
-  changes: string
-  ip_address: string
-  user_agent: string
+  user: {
+    id?: string
+    name: string
+    email: string
+  } | null
+  entity: string
+  entity_id: string | null
+  action: string
+  changes: string | null
+  ip_address: string | null
+  user_agent: string | null
   created_at: string
 }
 
-const mockAuditLogs: AuditLog[] = [
-  {
-    id: '1',
-    user: { name: 'João Silva', email: 'joao@admin.com' },
-    entity: 'faction',
-    entity_id: 'uuid-1', 
-    action: 'create',
-    changes: JSON.stringify({ name: 'PCC', color: '#ff0000' }),
-    ip_address: '192.168.1.100',
-    user_agent: 'Mozilla/5.0...',
-    created_at: '2024-01-20T10:30:00Z'
-  },
-  {
-    id: '2',
-    user: { name: 'Maria Santos', email: 'maria@moderator.com' },
-    entity: 'user',
-    entity_id: 'uuid-2',
-    action: 'update', 
-    changes: JSON.stringify({ role: 'moderator', active: true }),
-    ip_address: '192.168.1.101',
-    user_agent: 'Mozilla/5.0...',
-    created_at: '2024-01-20T11:15:00Z'
-  },
-  {
-    id: '3',
-    user: { name: 'Pedro Oliveira', email: 'pedro@collaborator.com' },
-    entity: 'geometry',
-    entity_id: 'uuid-3',
-    action: 'delete',
-    changes: JSON.stringify({ geometry_type: 'polygon', faction_id: 'uuid-1' }),
-    ip_address: '192.168.1.102', 
-    user_agent: 'Mozilla/5.0...',
-    created_at: '2024-01-20T12:45:00Z'
-  },
-  {
-    id: '4',
-    user: { name: 'Ana Costa', email: 'ana@citizen.com' },
-    entity: 'report',
-    entity_id: 'uuid-4',
-    action: 'create',
-    changes: JSON.stringify({ type: 'inaccuracy', status: 'pending' }),
-    ip_address: '192.168.1.103',
-    user_agent: 'Mozilla/5.0...',
-    created_at: '2024-01-20T14:20:00Z'
-  }
-]
-
-const actionColors: Record<AuditLogAction, string> = {
-  create: 'bg-green-500',
-  update: 'bg-blue-500',
-  delete: 'bg-red-500',
-  read: 'bg-gray-500'
-}
-
-const actionLabels: Record<AuditLogAction, string> = {
+const ACTION_LABELS: Record<string, string> = {
   create: 'Criação',
-  update: 'Atualização', 
+  update: 'Atualização',
   delete: 'Exclusão',
-  read: 'Leitura'
+  read: 'Leitura',
 }
 
-const entityLabels: Record<AuditLogEntity, string> = {
+const ENTITY_LABELS: Record<string, string> = {
   user: 'Usuário',
   faction: 'Facção',
   geometry: 'Geometria',
-  report: 'Relatório'
+  report: 'Relatório',
 }
 
+const PAGE_SIZE = 20
+
 export default function AuditPage() {
-  const [logs, setLogs] = useState<AuditLog[]>(mockAuditLogs)
+  const [page, setPage] = useState(1)
   const [searchTerm, setSearchTerm] = useState('')
-  const [entityFilter, setEntityFilter] = useState<AuditLogEntity | ''>('')
-  const [actionFilter, setActionFilter] = useState<AuditLogAction | ''>('')
+  const debouncedSearch = useDebounce(searchTerm, 300)
+  const [entityFilter, setEntityFilter] = useState('')
+  const [actionFilter, setActionFilter] = useState('')
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null)
   const [showDetails, setShowDetails] = useState(false)
 
-  const filteredLogs = logs.filter(log => {
-    const matchesSearch = log.user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         log.user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         log.entity.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesEntity = !entityFilter || log.entity === entityFilter
-    const matchesAction = !actionFilter || log.action === actionFilter
-    return matchesSearch && matchesEntity && matchesAction
+  const { data, isLoading, isFetching } = useAuditLogs({
+    page,
+    limit: PAGE_SIZE,
+    entity: entityFilter || undefined,
+    action: actionFilter || undefined,
   })
+
+  const logs = useMemo(() => (data?.logs ?? []) as AuditLog[], [data?.logs])
+  const pagination = data?.pagination as
+    | {
+        page: number
+        limit: number
+        total: number
+        pages: number
+        has_next: boolean
+        has_prev: boolean
+      }
+    | undefined
+
+  const filteredLogs = useMemo(() => {
+    if (!debouncedSearch) {
+      return logs
+    }
+
+    const term = debouncedSearch.toLowerCase()
+
+    return logs.filter((log) => {
+      const userName = log.user?.name?.toLowerCase() ?? 'anônimo'
+      const userEmail = log.user?.email?.toLowerCase() ?? ''
+      const entity = log.entity.toLowerCase()
+      const action = log.action.toLowerCase()
+      return (
+        userName.includes(term) ||
+        userEmail.includes(term) ||
+        entity.includes(term) ||
+        action.includes(term)
+      )
+    })
+  }, [logs, debouncedSearch])
+
+  const stats = useMemo(() => {
+    const totalLogs = logs.length
+
+    const byAction = logs.reduce<Record<string, number>>((acc, log) => {
+      const key = log.action
+      acc[key] = (acc[key] ?? 0) + 1
+      return acc
+    }, {})
+
+    const todayLogs = logs.filter((log) => {
+      const today = new Date()
+      const logDate = new Date(log.created_at)
+      return (
+        logDate.getDate() === today.getDate() &&
+        logDate.getMonth() === today.getMonth() &&
+        logDate.getFullYear() === today.getFullYear()
+      )
+    }).length
+
+    return {
+      total_logs: totalLogs,
+      today_logs: todayLogs,
+      by_action: {
+        create: byAction.create ?? 0,
+        update: byAction.update ?? 0,
+        delete: byAction.delete ?? 0,
+      },
+    }
+  }, [logs])
+
+  const isLogsLoading = isLoading || isFetching
 
   const viewLogDetails = (log: AuditLog) => {
     setSelectedLog(log)
     setShowDetails(true)
   }
 
-  const formatChanges = (changesString: string) => {
+  const formatChanges = (changesString: string | null) => {
+    if (!changesString) {
+      return 'Sem detalhes registrados.'
+    }
+
     try {
-      const changes = JSON.parse(changesString)
+      const changes = JSON.parse(changesString) as Record<string, unknown>
       return Object.entries(changes).map(([key, value]) => (
         <div key={key} className="mb-1">
           <span className="font-medium">{key}:</span> {JSON.stringify(value)}
         </div>
       ))
-    } catch {
+    } catch (error) {
       return changesString
     }
   }
 
-  // Mock statistics
-  const stats = {
-    total_logs: logs.length,
-    today_logs: logs.filter(log => {
-      const today = new Date().toDateString()
-      return new Date(log.created_at).toDateString() === today
-    }).length,
-    by_action: {
-      create: logs.filter(log => log.action === 'create').length,
-      update: logs.filter(log => log.action === 'update').length,
-      delete: logs.filter(log => log.action === 'delete').length
-    }
+  const resetFilters = () => {
+    setSearchTerm('')
+    setEntityFilter('')
+    setActionFilter('')
+    setPage(1)
   }
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Log de Auditoria</h1>
-        <Button variant="outline">
+        <Button variant="outline" onClick={resetFilters}>
           <Calendar className="mr-2 h-4 w-4" />
-          Exportar Relatório
+          Resetar Filtros
         </Button>
       </div>
 
-      {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="pt-6">
@@ -178,48 +197,44 @@ export default function AuditPage() {
             </div>
           </CardContent>
         </Card>
-        
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Hoje</p>
-                <p className="text-2xl font-bold">{stats.today_logs}</p>
+                <p className="text-2xl font-bold text-green-600">{stats.today_logs}</p>
               </div>
-              <Calendar className="h-8 w-8 text-green-600" />
+              <User className="h-8 w-8 text-green-600" />
             </div>
           </CardContent>
         </Card>
-
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Criações</p>
-                <p className="text-2xl font-bold">{stats.by_action.create}</p>
+                <p className="text-2xl font-bold text-blue-600">{stats.by_action.create ?? 0}</p>
               </div>
-              <div className="h-8 w-8 bg-green-500 rounded" />
+              <Database className="h-8 w-8 text-blue-600" />
             </div>
           </CardContent>
         </Card>
-
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Exclusões</p>
-                <p className="text-2xl font-bold text-red-600">{stats.by_action.delete}</p>
+                <p className="text-2xl font-bold text-red-600">{stats.by_action.delete ?? 0}</p>
               </div>
-              <div className="h-8 w-8 bg-red-500 rounded" />
+              <Database className="h-8 w-8 text-red-600" />
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex gap-4">
+          <div className="flex flex-col gap-4 md:flex-row">
             <div className="flex-1">
               <div className="relative">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
@@ -231,150 +246,197 @@ export default function AuditPage() {
                 />
               </div>
             </div>
-            <div className="w-48">
+            <div className="w-full md:w-48">
               <select
                 value={entityFilter}
-                onChange={(e) => setEntityFilter(e.target.value as AuditLogEntity | '')}
+                onChange={(e) => {
+                  setEntityFilter(e.target.value)
+                  setPage(1)
+                }}
                 className="w-full p-2 border rounded-md"
               >
                 <option value="">Todas as entidades</option>
-                <option value="user">Usuário</option>
-                <option value="faction">Facção</option>
-                <option value="geometry">Geometria</option>
-                <option value="report">Relatório</option>
+                {Object.entries(ENTITY_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
               </select>
             </div>
-            <div className="w-48">
+            <div className="w-full md:w-48">
               <select
                 value={actionFilter}
-                onChange={(e) => setActionFilter(e.target.value as AuditLogAction | '')}
+                onChange={(e) => {
+                  setActionFilter(e.target.value)
+                  setPage(1)
+                }}
                 className="w-full p-2 border rounded-md"
               >
                 <option value="">Todas as ações</option>
-                <option value="create">Criação</option>
-                <option value="update">Atualização</option>
-                <option value="delete">Exclusão</option>
+                {Object.entries(ACTION_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Audit Logs Table */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center">
             <Activity className="mr-2 h-5 w-5" />
-            Registros de Auditoria ({filteredLogs.length})
+            Registros de Auditoria ({pagination?.total ?? filteredLogs.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Data/Hora</TableHead>
-                <TableHead>Usuário</TableHead>
-                <TableHead>Entidade</TableHead>
-                <TableHead>Ação</TableHead>
-                <TableHead>IP</TableHead>
-                <TableHead>Detalhes</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredLogs.map((log) => (
-                <TableRow key={log.id}>
-                  <TableCell>
-                    {new Date(log.created_at).toLocaleString('pt-BR')}
-                  </TableCell>
-                  <TableCell>
-                    <div>
-                      <p className="font-medium">{log.user.name}</p>
-                      <p className="text-sm text-gray-500">{log.user.email}</p>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">
-                      {entityLabels[log.entity]}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={`${actionColors[log.action]} text-white`}>
-                      {actionLabels[log.action]}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="font-mono text-sm">
-                    {log.ip_address}
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => viewLogDetails(log)}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Data/Hora</TableHead>
+                  <TableHead>Usuário</TableHead>
+                  <TableHead>Entidade</TableHead>
+                  <TableHead>Ação</TableHead>
+                  <TableHead>IP</TableHead>
+                  <TableHead>Detalhes</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {isLogsLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="py-8 text-center">
+                      <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Carregando logs...
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : filteredLogs.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
+                      Nenhum registro encontrado.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredLogs.map((log) => (
+                    <TableRow key={log.id}>
+                      <TableCell className="whitespace-nowrap">
+                        {format(new Date(log.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
+                      </TableCell>
+                      <TableCell>
+                        {log.user ? (
+                          <div>
+                            <p className="font-medium">{log.user.name}</p>
+                            <p className="text-sm text-gray-500">{log.user.email}</p>
+                          </div>
+                        ) : (
+                          <Badge variant="outline">Sistema</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {ENTITY_LABELS[log.entity] ?? log.entity}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">
+                          {ACTION_LABELS[log.action] ?? log.action}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-gray-500">
+                        {log.ip_address ?? '-'}
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="outline" size="sm" onClick={() => viewLogDetails(log)}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          {pagination && pagination.pages > 1 && (
+            <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
+              <div>
+                Página {pagination.page} de {pagination.pages} — {pagination.total} registros
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+                  disabled={!pagination.has_prev || isLogsLoading}
+                >
+                  Anterior
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((prev) => prev + 1)}
+                  disabled={!pagination.has_next || isLogsLoading}
+                >
+                  Próxima
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Log Details Modal */}
-      {showDetails && selectedLog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Detalhes do Log de Auditoria</h3>
-              <Button variant="outline" onClick={() => setShowDetails(false)}>
-                ✕
-              </Button>
-            </div>
-            
+      <Dialog open={showDetails} onOpenChange={setShowDetails}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Detalhes do Log</DialogTitle>
+          </DialogHeader>
+          {selectedLog && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="font-medium text-gray-600">Usuário</p>
+                <p>{selectedLog.user?.name || 'Sistema'}</p>
+                {selectedLog.user?.email && (
+                  <p className="text-sm text-gray-500">{selectedLog.user.email}</p>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <p className="font-medium text-gray-600">Usuário:</p>
-                  <p>{selectedLog.user.name} ({selectedLog.user.email})</p>
+                  <p className="font-medium text-gray-600">Entidade</p>
+                  <p>{ENTITY_LABELS[selectedLog.entity] ?? selectedLog.entity}</p>
                 </div>
                 <div>
-                  <p className="font-medium text-gray-600">Data/Hora:</p>
-                  <p>{new Date(selectedLog.created_at).toLocaleString('pt-BR')}</p>
+                  <p className="font-medium text-gray-600">Ação</p>
+                  <p>{ACTION_LABELS[selectedLog.action] ?? selectedLog.action}</p>
                 </div>
                 <div>
-                  <p className="font-medium text-gray-600">Entidade:</p>
-                  <p>{entityLabels[selectedLog.entity]} (ID: {selectedLog.entity_id})</p>
+                  <p className="font-medium text-gray-600">Data</p>
+                  <p>{format(new Date(selectedLog.created_at), 'dd/MM/yyyy HH:mm:ss', { locale: ptBR })}</p>
                 </div>
                 <div>
-                  <p className="font-medium text-gray-600">Ação:</p>
-                  <Badge className={`${actionColors[selectedLog.action]} text-white`}>
-                    {actionLabels[selectedLog.action]}
-                  </Badge>
-                </div>
-                <div>
-                  <p className="font-medium text-gray-600">Endereço IP:</p>
-                  <p className="font-mono">{selectedLog.ip_address}</p>
+                  <p className="font-medium text-gray-600">IP</p>
+                  <p>{selectedLog.ip_address ?? '-'}</p>
                 </div>
               </div>
-              
+
               <div>
-                <p className="font-medium text-gray-600 mb-2">Alterações:</p>
-                <div className="bg-gray-100 p-3 rounded border font-mono text-sm">
+                <p className="font-medium text-gray-600 mb-2">Alterações</p>
+                <div className="rounded border bg-muted p-3 text-sm">
                   {formatChanges(selectedLog.changes)}
                 </div>
               </div>
 
-              <div>
-                <p className="font-medium text-gray-600 mb-2">User Agent:</p>
-                <p className="text-sm bg-gray-100 p-2 rounded break-all">
-                  {selectedLog.user_agent}
-                </p>
-              </div>
+              {selectedLog.user_agent && (
+                <div>
+                  <p className="font-medium text-gray-600 mb-2">User Agent</p>
+                  <p className="text-sm text-gray-500 break-all">{selectedLog.user_agent}</p>
+                </div>
+              )}
             </div>
-          </div>
-        </div>
-      )}
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

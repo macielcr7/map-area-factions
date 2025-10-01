@@ -1,20 +1,25 @@
-//go:build tools
-// +build tools
-
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"os"
+	"strings"
+
 	"golang.org/x/crypto/bcrypt"
 )
 
 func main() {
-	password := "admin123"
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), 10)
+	fmt.Print("Password: ")
+	reader := bufio.NewReader(os.Stdin)
+	password, _ := reader.ReadString('\n')
+	password = strings.TrimSpace(password)
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
+		fmt.Println("Error generating hash:", err)
 		return
 	}
-	fmt.Printf("Password: %s\n", password)
-	fmt.Printf("Hash: %s\n", string(hash))
+
+	fmt.Println("Hash:", string(hash))
 }

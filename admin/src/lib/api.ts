@@ -58,7 +58,7 @@ class ApiClient {
   }
 
   // User methods
-  async getUsers(params?: { page?: number; limit?: number; role?: string }) {
+  async getUsers(params?: { page?: number; limit?: number; role?: string; search?: string }) {
     const response = await this.client.get('/users', { params })
     return response.data
   }
@@ -152,6 +152,17 @@ class ApiClient {
 
   async deleteReport(id: string) {
     const response = await this.client.delete(`/reports/${id}`)
+    return response.data
+  }
+
+  // Settings methods
+  async getSettings() {
+    const response = await this.client.get('/settings')
+    return response.data
+  }
+
+  async updateSettings(data: any) {
+    const response = await this.client.put('/settings', data)
     return response.data
   }
 

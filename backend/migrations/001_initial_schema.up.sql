@@ -21,9 +21,10 @@ CREATE TABLE users (
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     role user_role DEFAULT 'citizen',
-    status VARCHAR(20) DEFAULT 'active',
+    active BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    deleted_at TIMESTAMP WITH TIME ZONE
 );
 
 -- Tabela de facções
@@ -35,7 +36,8 @@ CREATE TABLE factions (
     display_priority INTEGER DEFAULT 0,
     active BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    deleted_at TIMESTAMP WITH TIME ZONE
 );
 
 -- Tabela de regiões (municípios, bairros, etc.)
@@ -49,7 +51,8 @@ CREATE TABLE regions (
     bounds GEOMETRY(POLYGON, 4326),
     status geometry_status DEFAULT 'draft',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    deleted_at TIMESTAMP WITH TIME ZONE
 );
 
 -- Tabela de geometrias (polígonos e polilinhas)
@@ -68,7 +71,8 @@ CREATE TABLE geometries (
     geom GEOMETRY NOT NULL, -- Generated from geojson
     author_id UUID REFERENCES users(id),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    deleted_at TIMESTAMP WITH TIME ZONE
 );
 
 -- Tabela de versões de geometrias (histórico)
@@ -87,14 +91,21 @@ CREATE TABLE incidents (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     type VARCHAR(100) NOT NULL,
     description TEXT,
+    location VARCHAR(255),
+    latitude DOUBLE PRECISION,
+    longitude DOUBLE PRECISION,
     geom GEOMETRY NOT NULL, -- Point or Polygon
     start_time TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     end_time TIMESTAMP WITH TIME ZONE,
     severity INTEGER DEFAULT 1, -- 1-5
     status incident_status DEFAULT 'active',
+    source VARCHAR(255),
     author_id UUID REFERENCES users(id),
+    resolved_at TIMESTAMP WITH TIME ZONE,
+    expires_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    deleted_at TIMESTAMP WITH TIME ZONE
 );
 
 -- Tabela de assinaturas
@@ -103,14 +114,17 @@ CREATE TABLE subscriptions (
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     plan VARCHAR(50) NOT NULL, -- 'monthly', 'quarterly', 'lifetime'
     status subscription_status DEFAULT 'pending',
-    provider VARCHAR(50) DEFAULT 'mercado_pago',
-    external_id VARCHAR(255),
     start_date TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     end_date TIMESTAMP WITH TIME ZONE,
-    amount DECIMAL(10,2),
-    invoice_data JSONB,
+    price DECIMAL(10,2),
+    currency VARCHAR(3) DEFAULT 'BRL',
+    payment_method VARCHAR(50),
+    payment_id VARCHAR(255),
+    auto_renew BOOLEAN DEFAULT false,
+    cancelled_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    deleted_at TIMESTAMP WITH TIME ZONE
 );
 
 -- Tabela de logs de auditoria
@@ -135,6 +149,15 @@ CREATE TABLE reports (
     text TEXT NOT NULL,
     attachments JSONB, -- URLs dos anexos no S3
     status report_status DEFAULT 'open',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+-- Tabela de configurações do sistema
+CREATE TABLE system_settings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    data JSONB NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -176,6 +199,7 @@ CREATE TRIGGER update_geometries_updated_at BEFORE UPDATE ON geometries FOR EACH
 CREATE TRIGGER update_incidents_updated_at BEFORE UPDATE ON incidents FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_subscriptions_updated_at BEFORE UPDATE ON subscriptions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_reports_updated_at BEFORE UPDATE ON reports FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_system_settings_updated_at BEFORE UPDATE ON system_settings FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Function para converter GeoJSON em Geometry
 CREATE OR REPLACE FUNCTION update_geometry_from_geojson()

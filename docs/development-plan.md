@@ -4,6 +4,19 @@ Este documento detalha o plano de implementação dividido em fases para cada co
 
 ## 🎯 Visão Geral das Fases
 
+## ✅ Status Atual (set/2025)
+- Backend expõe autenticação JWT, CRUD de usuários, facções, geometrias, relatórios, auditoria e novo endpoint de configurações do sistema.
+- Admin (Next.js) consome a API real para usuários, relatórios, auditoria e configurações – nenhuma tela principal utiliza dados mockados.
+- Docker build (`docker-compose`) gera containers de backend e admin sem erros de dependência.
+- Seeds SQL (`backend/seeds/001_initial_data.sql`) provêm dados reais iniciais para usuários e facções.
+
+## 🔜 Pendências Prioritárias
+- Finalizar recursos de regiões (CRUD e integração no admin) e map editor integrado ao backend.
+- Implementar persistência de incidentes, assinaturas e métricas avançadas descritas na fase 4.
+- Cobertura de testes automatizados (unitários e integração) ainda abaixo da meta planejada de 70%.
+- Pipeline de deploy (fase 5) ainda não configurado; definir infraestrutura alvo (AWS) e IaC.
+- Documentar contratos REST no `docs/api` conforme endpoints consolidados.
+
 ### Fase 1: Core Backend (2-3 semanas)
 - Implementação do backend Go com APIs básicas
 - Autenticação JWT e middleware

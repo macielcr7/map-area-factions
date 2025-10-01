@@ -70,6 +70,7 @@ func main() {
 	geometryRepo := repository.NewGeometryRepository(dbService.DB)
 	auditRepo := repository.NewAuditRepository(dbService.DB)
 	reportRepo := repository.NewReportRepository(dbService.DB)
+	settingsRepo := repository.NewSettingsRepository(dbService.DB)
 
 	// Initialize WebSocket handler
 	wsHandler := handlers.NewWebSocketHandler()
@@ -82,6 +83,7 @@ func main() {
 	auditHandler := handlers.NewAuditHandler(auditRepo)
 	reportHandler := handlers.NewReportHandler(reportRepo)
 	healthHandler := handlers.NewHealthHandler(dbService, redisService)
+	settingsHandler := handlers.NewSettingsHandler(settingsRepo)
 
 	// Initialize Fiber app
 	app := fiber.New(fiber.Config{
@@ -137,7 +139,7 @@ func main() {
 				"auth":       "/api/v1/auth",
 				"users":      "/api/v1/users",
 				"factions":   "/api/v1/factions",
-				"geometries": "/api/v1/geometries", 
+				"geometries": "/api/v1/geometries",
 				"audit":      "/api/v1/audit",
 				"reports":    "/api/v1/reports",
 				"websocket":  "/ws",
@@ -233,6 +235,13 @@ func main() {
 	reportsAdmin.Use(middleware.JWTMiddleware(jwtService))
 	reportsAdmin.Use(middleware.RequireRole("admin"))
 	reportsAdmin.Delete("/:id", reportHandler.DeleteReport)
+
+	// Settings routes (admin only)
+	settings := api.Group("/settings")
+	settings.Use(middleware.JWTMiddleware(jwtService))
+	settings.Use(middleware.RequireRole("admin"))
+	settings.Get("/", settingsHandler.GetSettings)
+	settings.Put("/", settingsHandler.UpdateSettings)
 
 	// Swagger documentation endpoint
 	app.Get("/docs/*", func(c *fiber.Ctx) error {

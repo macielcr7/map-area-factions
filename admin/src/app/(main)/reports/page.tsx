@@ -1,7 +1,6 @@
 'use client'
 
-import { useState } from 'react'
-import { useReports, useUpdateReport } from '@/lib/queries'
+import { useEffect, useMemo, useState } from 'react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -32,20 +31,59 @@ import {
   Eye,
   Edit,
   Loader2,
+  RefreshCw,
 } from 'lucide-react'
+import {
+  useReports,
+  useUpdateReport,
+} from '@/lib/queries'
+import { toast } from 'sonner'
+
+const PAGE_SIZE = 20
+
+const statusLabels: Record<ReportStatus, string> = {
+  pending: 'Pendente',
+  reviewing: 'Em Análise',
+  resolved: 'Resolvido',
+  rejected: 'Rejeitado',
+}
+
+const statusColors: Record<ReportStatus, string> = {
+  pending: 'bg-yellow-500',
+  reviewing: 'bg-blue-500',
+  resolved: 'bg-green-500',
+  rejected: 'bg-red-500',
+}
+
+const typeLabels: Record<ReportType, string> = {
+  inaccuracy: 'Imprecisão',
+  inappropriate: 'Conteúdo Inadequado',
+  spam: 'Spam',
+  outdated: 'Desatualizado',
+  other: 'Outros',
+}
+
+const typeColors: Record<ReportType, string> = {
+  inaccuracy: 'bg-orange-500',
+  inappropriate: 'bg-red-500',
+  spam: 'bg-gray-500',
+  outdated: 'bg-blue-500',
+  other: 'bg-purple-500',
+}
 
 type ReportStatus = 'pending' | 'reviewing' | 'resolved' | 'rejected'
 type ReportType = 'inaccuracy' | 'inappropriate' | 'spam' | 'outdated' | 'other'
 
-interface ReportUser {
+type ReportUser = {
+  id?: string
   name: string
   email: string
 }
 
-interface Report {
+type AdminReport = {
   id: string
   user: ReportUser | null
-  geometry_id: string
+  geometry_id: string | null
   type: ReportType
   description: string
   attachments: string[]
@@ -58,122 +96,149 @@ interface Report {
   review_notes: string | null
 }
 
-const statusColors: Record<ReportStatus, string> = {
-  pending: 'bg-yellow-500',
-  reviewing: 'bg-blue-500',
-  resolved: 'bg-green-500',
-  rejected: 'bg-red-500'
-}
-
-const statusLabels: Record<ReportStatus, string> = {
-  pending: 'Pendente',
-  reviewing: 'Em Análise',
-  resolved: 'Resolvido',
-  rejected: 'Rejeitado'
-}
-
-const typeLabels: Record<ReportType, string> = {
-  inaccuracy: 'Imprecisão',
-  inappropriate: 'Conteúdo Inadequado',
-  spam: 'Spam',
-  outdated: 'Desatualizado',
-  other: 'Outros'
-}
-
-const typeColors: Record<ReportType, string> = {
-  inaccuracy: 'bg-orange-500',
-  inappropriate: 'bg-red-500',
-  spam: 'bg-gray-500',
-  outdated: 'bg-blue-500',
-  other: 'bg-purple-500'
-}
-
-interface ReviewFormData {
+type ReviewFormData = {
   status: ReportStatus
   review_notes: string
+  assigned_to_id: string
 }
 
 export default function ReportsPage() {
+  const [page, setPage] = useState(1)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<ReportStatus | ''>('')
   const [typeFilter, setTypeFilter] = useState<ReportType | ''>('')
-  const [selectedReport, setSelectedReport] = useState<Report | null>(null)
+  const [selectedReport, setSelectedReport] = useState<AdminReport | null>(null)
   const [showDetails, setShowDetails] = useState(false)
   const [showReview, setShowReview] = useState(false)
   const [reviewData, setReviewData] = useState<ReviewFormData>({
     status: 'pending',
     review_notes: '',
+    assigned_to_id: '',
   })
 
-  // API hooks
-  const { data: reportsData, isLoading } = useReports({
+  const { data, isLoading, isFetching, isError, error } = useReports({
+    page,
+    limit: PAGE_SIZE,
     status: statusFilter || undefined,
     type: typeFilter || undefined,
   })
+
   const updateReportMutation = useUpdateReport()
 
-  const reports = reportsData?.data || []
-  
-  const filteredReports = reports.filter((report: Report) => {
-    const matchesSearch = (report.user?.name || 'Anônimo').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         report.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         report.type.toLowerCase().includes(searchTerm.toLowerCase())
-    return matchesSearch
-  })
+  useEffect(() => {
+    if (!isError || !error) {
+      return
+    }
+    toast.error('Erro ao carregar relatórios')
+    // eslint-disable-next-line no-console
+    console.error(error)
+  }, [isError, error])
 
-  const viewReportDetails = (report: Report) => {
-    setSelectedReport(report)
-    setShowDetails(true)
-  }
+  const reports = useMemo(() => (data?.reports ?? []) as AdminReport[], [data?.reports])
+  const pagination = data?.pagination as
+    | {
+        page: number
+        limit: number
+        total: number
+        pages: number
+        has_next: boolean
+        has_prev: boolean
+      }
+    | undefined
 
-  const openReviewDialog = (report: Report) => {
+  const filteredReports = useMemo(() => {
+    if (!searchTerm) {
+      return reports
+    }
+
+    const normalizedSearch = searchTerm.toLowerCase()
+
+    return reports.filter((report) => {
+      const reporterName = report.user?.name?.toLowerCase() ?? 'anônimo'
+      const reporterEmail = report.user?.email?.toLowerCase() ?? ''
+      return (
+        reporterName.includes(normalizedSearch) ||
+        reporterEmail.includes(normalizedSearch) ||
+        report.description.toLowerCase().includes(normalizedSearch) ||
+        typeLabels[report.type].toLowerCase().includes(normalizedSearch)
+      )
+    })
+  }, [reports, searchTerm])
+
+  const stats = useMemo(() => {
+    const totalReports = reports.length
+    const pendingReports = reports.filter((report) => report.status === 'pending').length
+    const resolvedReports = reports.filter((report) => report.status === 'resolved').length
+    const byType = reports.reduce<Record<ReportType, number>>((acc, report) => {
+      acc[report.type] = (acc[report.type] ?? 0) + 1
+      return acc
+    }, {
+      inaccuracy: 0,
+      inappropriate: 0,
+      spam: 0,
+      outdated: 0,
+      other: 0,
+    })
+
+    return {
+      total_reports: totalReports,
+      pending_reports: pendingReports,
+      resolved_reports: resolvedReports,
+      by_type: byType,
+    }
+  }, [reports])
+
+  const isReportsLoading = isLoading || isFetching
+
+  const openReviewDialog = (report: AdminReport) => {
     setSelectedReport(report)
     setReviewData({
       status: report.status,
-      review_notes: report.review_notes || '',
+      review_notes: report.review_notes ?? '',
+      assigned_to_id: report.assigned_to?.id ?? '',
     })
     setShowReview(true)
   }
 
   const handleReviewSubmit = async () => {
-    if (!selectedReport) return
+    if (!selectedReport) {
+      return
+    }
 
     try {
       await updateReportMutation.mutateAsync({
         id: selectedReport.id,
-        data: reviewData
+        data: {
+          status: reviewData.status,
+          review_notes: reviewData.review_notes,
+          assigned_to_id: reviewData.assigned_to_id || undefined,
+        },
       })
       setShowReview(false)
       setSelectedReport(null)
-    } catch (error) {
-      // Error handled by mutation
+    } catch (mutationError) {
+      // eslint-disable-next-line no-console
+      console.error(mutationError)
     }
   }
 
-  // Calculate statistics from real data
-  const stats = {
-    total_reports: reports.length,
-    pending_reports: reports.filter((r: Report) => r.status === 'pending').length,
-    resolved_reports: reports.filter((r: Report) => r.status === 'resolved').length,
-    by_type: {
-      inaccuracy: reports.filter((r: Report) => r.type === 'inaccuracy').length,
-      inappropriate: reports.filter((r: Report) => r.type === 'inappropriate').length,
-      spam: reports.filter((r: Report) => r.type === 'spam').length,
-      outdated: reports.filter((r: Report) => r.type === 'outdated').length
-    }
+  const resetFilters = () => {
+    setSearchTerm('')
+    setStatusFilter('')
+    setTypeFilter('')
+    setPage(1)
   }
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Gestão de Relatórios</h1>
-        <Button variant="outline">
-          <FileText className="mr-2 h-4 w-4" />
-          Exportar Dados
+        <Button variant="outline" onClick={resetFilters}>
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Resetar Filtros
         </Button>
       </div>
 
-      {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="pt-6">
@@ -186,7 +251,6 @@ export default function ReportsPage() {
             </div>
           </CardContent>
         </Card>
-        
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
@@ -198,7 +262,6 @@ export default function ReportsPage() {
             </div>
           </CardContent>
         </Card>
-
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
@@ -210,7 +273,6 @@ export default function ReportsPage() {
             </div>
           </CardContent>
         </Card>
-
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
@@ -224,10 +286,9 @@ export default function ReportsPage() {
         </Card>
       </div>
 
-      {/* Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex gap-4">
+          <div className="flex flex-col gap-4 md:flex-row">
             <div className="flex-1">
               <div className="relative">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
@@ -239,10 +300,13 @@ export default function ReportsPage() {
                 />
               </div>
             </div>
-            <div className="w-48">
+            <div className="w-full md:w-48">
               <select
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as ReportStatus | '')}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value as ReportStatus | '')
+                  setPage(1)
+                }}
                 className="w-full p-2 border rounded-md"
               >
                 <option value="">Todos os status</option>
@@ -252,10 +316,13 @@ export default function ReportsPage() {
                 <option value="rejected">Rejeitado</option>
               </select>
             </div>
-            <div className="w-48">
+            <div className="w-full md:w-48">
               <select
                 value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value as ReportType | '')}
+                onChange={(e) => {
+                  setTypeFilter(e.target.value as ReportType | '')
+                  setPage(1)
+                }}
                 className="w-full p-2 border rounded-md"
               >
                 <option value="">Todos os tipos</option>
@@ -270,21 +337,15 @@ export default function ReportsPage() {
         </CardContent>
       </Card>
 
-      {/* Reports Table */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center">
             <FileText className="mr-2 h-5 w-5" />
-            Relatórios ({filteredReports.length})
+            Relatórios ({pagination?.total ?? filteredReports.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
-            <div className="flex justify-center items-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin" />
-              <span className="ml-2">Carregando relatórios...</span>
-            </div>
-          ) : (
+          <div className="rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -298,68 +359,113 @@ export default function ReportsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredReports.map((report: Report) => (
-                  <TableRow key={report.id}>
-                    <TableCell>
-                      {new Date(report.created_at).toLocaleDateString('pt-BR')}
-                    </TableCell>
-                    <TableCell>
-                      {report.user ? (
-                        <div>
-                          <p className="font-medium">{report.user.name}</p>
-                          <p className="text-sm text-gray-500">{report.user.email}</p>
-                        </div>
-                      ) : (
-                        <Badge variant="outline">Anônimo</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={`${typeColors[report.type]} text-white`}>
-                        {typeLabels[report.type]}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={`${statusColors[report.status]} text-white`}>
-                        {statusLabels[report.status]}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="max-w-xs">
-                      <p className="truncate">{report.description}</p>
-                    </TableCell>
-                    <TableCell>
-                      {report.assigned_to ? (
-                        <p className="text-sm">{report.assigned_to.name}</p>
-                      ) : (
-                        <Badge variant="outline">Não atribuído</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => viewReportDetails(report)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openReviewDialog(report)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
+                {isReportsLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="py-8 text-center">
+                      <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Carregando relatórios...
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : filteredReports.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
+                      Nenhum relatório encontrado.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredReports.map((report) => (
+                    <TableRow key={report.id}>
+                      <TableCell>
+                        {new Date(report.created_at).toLocaleDateString('pt-BR')}
+                      </TableCell>
+                      <TableCell>
+                        {report.user ? (
+                          <div>
+                            <p className="font-medium">{report.user.name}</p>
+                            <p className="text-sm text-gray-500">{report.user.email}</p>
+                          </div>
+                        ) : (
+                          <Badge variant="outline">Anônimo</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={`${typeColors[report.type]} text-white`}>
+                          {typeLabels[report.type]}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={`${statusColors[report.status]} text-white`}>
+                          {statusLabels[report.status]}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="max-w-xs">
+                        <p className="truncate">{report.description}</p>
+                      </TableCell>
+                      <TableCell>
+                        {report.assigned_to ? (
+                          <p className="text-sm">{report.assigned_to.name}</p>
+                        ) : (
+                          <Badge variant="outline">Não atribuído</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedReport(report)
+                              setShowDetails(true)
+                            }}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openReviewDialog(report)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
+          </div>
+
+          {pagination && pagination.pages > 1 && (
+            <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
+              <div>
+                Página {pagination.page} de {pagination.pages} — {pagination.total} relatórios
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+                  disabled={!pagination.has_prev || isReportsLoading}
+                >
+                  Anterior
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((prev) => prev + 1)}
+                  disabled={!pagination.has_next || isReportsLoading}
+                >
+                  Próxima
+                </Button>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Report Details Modal */}
       <Dialog open={showDetails} onOpenChange={setShowDetails}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -392,7 +498,7 @@ export default function ReportsPage() {
                   </Badge>
                 </div>
               </div>
-              
+
               <div>
                 <p className="font-medium text-gray-600 mb-2">Descrição:</p>
                 <p className="bg-gray-100 p-3 rounded">{selectedReport.description}</p>
@@ -401,7 +507,7 @@ export default function ReportsPage() {
               {selectedReport.attachments && selectedReport.attachments.length > 0 && (
                 <div>
                   <p className="font-medium text-gray-600 mb-2">Anexos:</p>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     {selectedReport.attachments.map((attachment, index) => (
                       <Badge key={index} variant="outline">{attachment}</Badge>
                     ))}
@@ -409,7 +515,7 @@ export default function ReportsPage() {
                 </div>
               )}
 
-              {selectedReport.reporter_lat && selectedReport.reporter_lng && (
+              {selectedReport.reporter_lat !== null && selectedReport.reporter_lng !== null && (
                 <div>
                   <p className="font-medium text-gray-600 mb-2">Localização do Relato:</p>
                   <p className="font-mono text-sm">
@@ -431,7 +537,6 @@ export default function ReportsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Review Modal */}
       <Dialog open={showReview} onOpenChange={setShowReview}>
         <DialogContent>
           <DialogHeader>
@@ -446,7 +551,7 @@ export default function ReportsPage() {
               <select
                 value={reviewData.status}
                 onChange={(e) =>
-                  setReviewData(prev => ({ ...prev, status: e.target.value as ReportStatus }))
+                  setReviewData((prev) => ({ ...prev, status: e.target.value as ReportStatus }))
                 }
                 className="w-full p-2 border rounded-md"
               >
@@ -456,12 +561,12 @@ export default function ReportsPage() {
                 <option value="rejected">Rejeitado</option>
               </select>
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium mb-2">Notas da Revisão</label>
               <Textarea
                 value={reviewData.review_notes}
-                onChange={(e) => setReviewData(prev => ({ ...prev, review_notes: e.target.value }))}
+                onChange={(e) => setReviewData((prev) => ({ ...prev, review_notes: e.target.value }))}
                 placeholder="Adicione suas observações sobre a revisão..."
                 rows={4}
               />
@@ -471,10 +576,7 @@ export default function ReportsPage() {
             <Button variant="outline" onClick={() => setShowReview(false)}>
               Cancelar
             </Button>
-            <Button 
-              onClick={handleReviewSubmit}
-              disabled={updateReportMutation.isPending}
-            >
+            <Button onClick={handleReviewSubmit} disabled={updateReportMutation.isPending}>
               {updateReportMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
