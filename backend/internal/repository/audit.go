@@ -126,3 +126,39 @@ func (r *AuditRepository) GetStats(days int) (map[string]interface{}, error) {
 	
 	return stats, nil
 }
+
+// GetRecentActivities returns recent activities for dashboard
+func (r *AuditRepository) GetRecentActivities(limit int) ([]RecentActivity, error) {
+	var activities []RecentActivity
+	
+	query := `
+		SELECT 
+			al.id,
+			al.user_id,
+			u.name as user_name,
+			al.entity,
+			al.action,
+			al.target,
+			al.created_at
+		FROM audit_logs al
+		LEFT JOIN users u ON al.user_id = u.id
+		ORDER BY al.created_at DESC
+		LIMIT ?
+	`
+	
+	if err := r.db.Raw(query, limit).Scan(&activities).Error; err != nil {
+		return nil, err
+	}
+	
+	return activities, nil
+}
+
+type RecentActivity struct {
+	ID        uuid.UUID `json:"id"`
+	UserID    uuid.UUID `json:"user_id"`
+	UserName  string    `json:"user_name"`
+	Entity    string    `json:"entity"`
+	Action    string    `json:"action"`
+	Target    string    `json:"target"`
+	CreatedAt time.Time `json:"created_at"`
+}

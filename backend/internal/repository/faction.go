@@ -13,6 +13,7 @@ type FactionRepository interface {
 	Update(faction *models.Faction) error
 	Delete(id uuid.UUID) error
 	List(active *bool) ([]*models.Faction, error)
+	Count() (int64, error)
 }
 
 type factionRepository struct {
@@ -63,4 +64,10 @@ func (r *factionRepository) List(active *bool) ([]*models.Faction, error) {
 
 	err := query.Order("display_priority DESC, name ASC").Find(&factions).Error
 	return factions, err
+}
+
+func (r *factionRepository) Count() (int64, error) {
+	var count int64
+	err := r.db.Model(&models.Faction{}).Count(&count).Error
+	return count, err
 }

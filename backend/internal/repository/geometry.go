@@ -125,3 +125,9 @@ func (r *GeometryRepository) GetInBounds(northEast, southWest map[string]float64
 
 	return geometries, nil
 }
+
+func (r *GeometryRepository) Count() (int64, error) {
+	var count int64
+	err := r.db.Model(&models.Geometry{}).Count(&count).Error
+	return count, err
+}

@@ -126,3 +126,9 @@ func (r *ReportRepository) GetStats() (map[string]interface{}, error) {
 	
 	return stats, nil
 }
+
+func (r *ReportRepository) Count() (int64, error) {
+	var count int64
+	err := r.db.Model(&models.Report{}).Count(&count).Error
+	return count, err
+}

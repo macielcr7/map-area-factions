@@ -16,6 +16,7 @@ type UserRepository interface {
 	DeleteUser(user *models.User) error
 	List(limit, offset int, role string) ([]*models.User, int64, error)
 	GetUsers(page, limit int, search, role string) ([]models.User, int, error)
+	Count() (int64, error)
 }
 
 type userRepository struct {
@@ -119,4 +120,10 @@ func (r *userRepository) GetUsers(page, limit int, search, role string) ([]model
 	}
 
 	return users, int(total), nil
+}
+
+func (r *userRepository) Count() (int64, error) {
+	var count int64
+	err := r.db.Model(&models.User{}).Count(&count).Error
+	return count, err
 }

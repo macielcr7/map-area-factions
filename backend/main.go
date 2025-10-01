@@ -71,6 +71,8 @@ func main() {
 	auditRepo := repository.NewAuditRepository(dbService.DB)
 	reportRepo := repository.NewReportRepository(dbService.DB)
 	settingsRepo := repository.NewSettingsRepository(dbService.DB)
+	incidentRepo := repository.NewIncidentRepository(dbService.DB)
+	subscriptionRepo := repository.NewSubscriptionRepository(dbService.DB)
 
 	// Initialize WebSocket handler
 	wsHandler := handlers.NewWebSocketHandler()
@@ -84,6 +86,7 @@ func main() {
 	reportHandler := handlers.NewReportHandler(reportRepo)
 	healthHandler := handlers.NewHealthHandler(dbService, redisService)
 	settingsHandler := handlers.NewSettingsHandler(settingsRepo)
+	dashboardHandler := handlers.NewDashboardHandler(userRepo, factionRepo, geometryRepo, incidentRepo, subscriptionRepo, reportRepo, auditRepo)
 
 	// Initialize Fiber app
 	app := fiber.New(fiber.Config{
@@ -242,6 +245,15 @@ func main() {
 	settings.Use(middleware.RequireRole("admin"))
 	settings.Get("/", settingsHandler.GetSettings)
 	settings.Put("/", settingsHandler.UpdateSettings)
+
+	// Dashboard routes (admin only)
+	dashboard := api.Group("/dashboard")
+	dashboard.Use(middleware.JWTMiddleware(jwtService))
+	dashboard.Use(middleware.RequireRole("admin"))
+	dashboard.Get("/stats", dashboardHandler.GetDashboardStats)
+	dashboard.Get("/activity", dashboardHandler.GetActivityData)
+	dashboard.Get("/activities", dashboardHandler.GetRecentActivities)
+	dashboard.Get("/alerts", dashboardHandler.GetAlerts)
 
 	// Swagger documentation endpoint
 	app.Get("/docs/*", func(c *fiber.Ctx) error {
