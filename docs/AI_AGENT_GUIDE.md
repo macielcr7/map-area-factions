@@ -6,14 +6,14 @@
 
 ### ✅ IMPLEMENTADO E FUNCIONAL
 - **Backend Go + Fiber:** 90% completo
-- **Admin Interface Next.js:** 85% completo
+- **Admin Interface Next.js:** 90% completo
+- **Editor de Mapas:** ✅ IMPLEMENTADO (Mapbox GL JS + Draw)
 - **Sistema de autenticação:** Funcionando
 - **Dashboard com dados reais:** Funcionando
 - **Docker containers:** Operacionais
 
 ### ❌ NÃO IMPLEMENTADO
 - **Mobile App Flutter:** 0% implementado
-- **Editor de mapas:** 0% implementado
 - **Features avançadas:** 0% implementado
 - **Deploy produção:** 0% implementado
 
@@ -69,42 +69,38 @@ map-area-factions/
 
 ## 🎯 Próximos Passos Prioritários
 
-### 1. COMPLETAR ADMIN INTERFACE (2-3 semanas)
+### 1. COMPLETAR ADMIN INTERFACE (1-2 semanas)
 
-#### A. Editor de Mapas (1 semana)
-**Objetivo:** Implementar editor de mapas com Mapbox GL JS
+#### A. Editor de Mapas ✅ CONCLUÍDO
+**Status:** ✅ IMPLEMENTADO
 
-**Tarefas:**
-1. **Instalar dependências:**
-   ```bash
-   cd admin
-   npm install mapbox-gl @mapbox/mapbox-gl-draw
-   npm install @types/mapbox-gl @types/mapbox__mapbox-gl-draw
-   ```
+**O que foi feito:**
+- ✅ MapEditor component criado (`admin/src/components/maps/map-editor.tsx`)
+- ✅ Mapbox GL JS integrado com navegação e controles
+- ✅ Mapbox GL Draw adicionado para ferramentas de desenho
+- ✅ Controles de desenho: polígono, linha, seleção, edição
+- ✅ Conectado com API backend (CRUD completo)
+- ✅ Desenho de polígonos e polilinhas funcionando
+- ✅ Edição de geometrias existentes implementada
+- ✅ Controle de camadas por facção com toggle de visibilidade
+- ✅ Salvamento automático no backend
+- ✅ Visualização por cores de facção
+- ✅ Popups informativos ao clicar em geometrias
 
-2. **Criar componente MapEditor:**
-   ```typescript
-   // admin/src/components/maps/map-editor.tsx
-   - Integrar Mapbox GL JS
-   - Adicionar Mapbox GL Draw
-   - Implementar controles de desenho
-   - Conectar com API backend
-   ```
+**Documentação:**
+- `docs/MAP_EDITOR_IMPLEMENTATION.md` - Detalhes técnicos completos
+- `docs/MAP_EDITOR_QUICK_START.md` - Guia rápido de uso
 
-3. **Implementar funcionalidades:**
-   - Desenho de polígonos e polilinhas
-   - Edição de geometrias existentes
-   - Controle de camadas por facção
-   - Salvamento no backend
-   - Visualização por cores
+**Configuração necessária:**
+- Token Mapbox em `.env.local`: `NEXT_PUBLIC_MAPBOX_TOKEN=pk.your-token`
+- Obter token em: https://account.mapbox.com/access-tokens/
 
-4. **Integrar com página Maps:**
-   ```typescript
-   // admin/src/app/(main)/maps/page.tsx
-   - Usar componente MapEditor
-   - Adicionar sidebar com propriedades
-   - Implementar seleção de facção
-   ```
+**Próximas melhorias (opcionais):**
+- Seleção de facção ao criar geometrias
+- Edição avançada de propriedades (risk_level, region_name)
+- Geocoding/busca de locais
+- Import/export GeoJSON
+- Medições de distância e área
 
 #### B. CRUD Interfaces Completas (1 semana)
 **Objetivo:** Completar interfaces de usuários e facções

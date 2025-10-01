@@ -1,13 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { useFactions, useGeometries, useCreateGeometry } from '@/lib/queries'
+import { useFactions, useGeometries, useCreateGeometry, useUpdateGeometry, useDeleteGeometry } from '@/lib/queries'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
+import { MapEditor } from '@/components/maps/map-editor'
 import { 
   Map, 
   Plus, 
@@ -42,13 +43,15 @@ export default function MapsPage() {
   const [selectedTool, setSelectedTool] = useState<'select' | 'polygon' | 'line' | 'edit'>('select')
   const [layerVisibility, setLayerVisibility] = useState<LayerVisibility>({})
   const [selectedGeometry, setSelectedGeometry] = useState<SelectedGeometry | null>(null)
-  const [mapCenter, setMapCenter] = useState({ lat: -3.7319, lng: -38.5267 })
-  const [mapZoom, setMapZoom] = useState(10)
+  const [mapCenter] = useState<[number, number]>([-38.5267, -3.7172])
+  const [mapZoom] = useState(10)
 
   // API hooks
   const { data: factionsData } = useFactions({ active: true })
   const { data: geometriesData } = useGeometries()
   const createGeometryMutation = useCreateGeometry()
+  const updateGeometryMutation = useUpdateGeometry()
+  const deleteGeometryMutation = useDeleteGeometry()
 
   const factions = factionsData?.data || []
   const geometries = geometriesData?.data || []
@@ -86,7 +89,61 @@ export default function MapsPage() {
 
   const handleToolSelect = (tool: 'select' | 'polygon' | 'line' | 'edit') => {
     setSelectedTool(tool)
-    toast.info(`Ferramenta selecionada: ${tool === 'select' ? 'Seleção' : tool === 'polygon' ? 'Polígono' : tool === 'line' ? 'Linha' : 'Edição'}`)
+    const toolNames = {
+      select: 'Seleção',
+      polygon: 'Polígono',
+      line: 'Linha',
+      edit: 'Edição'
+    }
+    toast.info(`Ferramenta selecionada: ${toolNames[tool]}`)
+  }
+
+  const handleGeometryCreate = async (feature: any) => {
+    try {
+      // Prepare geometry data for API
+      const geometryData = {
+        geometry: JSON.stringify(feature.geometry),
+        faction_id: factions[0]?.id || '', // TODO: Allow selecting faction
+        region_name: 'Nova Área',
+        risk_level: 1,
+        active: true
+      }
+
+      await createGeometryMutation.mutateAsync(geometryData)
+      toast.success('Geometria criada com sucesso!')
+    } catch (error) {
+      console.error('Error creating geometry:', error)
+      toast.error('Erro ao criar geometria')
+    }
+  }
+
+  const handleGeometryUpdate = async (feature: any) => {
+    try {
+      if (!feature.id) return
+      
+      const geometryData = {
+        geometry: JSON.stringify(feature.geometry)
+      }
+
+      await updateGeometryMutation.mutateAsync({
+        id: feature.id as string,
+        data: geometryData
+      })
+      toast.success('Geometria atualizada com sucesso!')
+    } catch (error) {
+      console.error('Error updating geometry:', error)
+      toast.error('Erro ao atualizar geometria')
+    }
+  }
+
+  const handleGeometryDelete = async (id: string) => {
+    try {
+      await deleteGeometryMutation.mutateAsync(id)
+      toast.success('Geometria removida com sucesso!')
+    } catch (error) {
+      console.error('Error deleting geometry:', error)
+      toast.error('Erro ao remover geometria')
+    }
   }
 
   const handleGeometrySelect = (geometry: any) => {
@@ -99,16 +156,6 @@ export default function MapsPage() {
     })
   }
 
-  const simulateMapInteraction = () => {
-    if (selectedTool === 'polygon') {
-      toast.success('Novo polígono criado! (Simulação)')
-    } else if (selectedTool === 'line') {
-      toast.success('Nova linha criada! (Simulação)')
-    } else if (selectedTool === 'edit') {
-      toast.info('Modo de edição ativo')
-    }
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -117,10 +164,6 @@ export default function MapsPage() {
           <Button variant="outline">
             <Filter className="mr-2 h-4 w-4" />
             Filtros
-          </Button>
-          <Button onClick={simulateMapInteraction}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nova Geometria
           </Button>
         </div>
       </div>
@@ -189,7 +232,7 @@ export default function MapsPage() {
                 <div className="flex items-center gap-2 text-sm text-gray-500">
                   <span>Zoom: {mapZoom}</span>
                   <span>|</span>
-                  <span>{mapCenter.lat.toFixed(4)}, {mapCenter.lng.toFixed(4)}</span>
+                  <span>{mapCenter[1].toFixed(4)}, {mapCenter[0].toFixed(4)}</span>
                 </div>
               </CardTitle>
             </CardHeader>
@@ -237,45 +280,17 @@ export default function MapsPage() {
               </div>
 
               {/* Map Container */}
-              <div 
-                className="bg-gradient-to-br from-blue-100 to-green-100 rounded-lg h-[500px] flex items-center justify-center cursor-crosshair"
-                onClick={simulateMapInteraction}
-              >
-                <div className="text-center">
-                  <Globe className="mx-auto h-16 w-16 text-gray-400 mb-4" />
-                  <p className="text-gray-600 font-medium">
-                    Editor de Mapas Interativo
-                  </p>
-                  <p className="text-sm text-gray-500 mt-2">
-                    Mapbox GL JS será integrado aqui para desenhar e editar geometrias
-                  </p>
-                  <p className="text-xs text-gray-400 mt-2">
-                    Ferramenta ativa: <strong>{selectedTool === 'select' ? 'Seleção' : selectedTool === 'polygon' ? 'Polígono' : selectedTool === 'line' ? 'Linha' : 'Edição'}</strong>
-                  </p>
-                  
-                  {/* Simulated faction areas */}
-                  <div className="flex justify-center gap-4 mt-4">
-                    {factions.slice(0, 3).map((faction: any) => (
-                      <div 
-                        key={faction.id}
-                        className="w-16 h-12 rounded cursor-pointer opacity-70 hover:opacity-100"
-                        style={{ backgroundColor: faction.color_hex }}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleGeometrySelect({
-                            id: `geo-${faction.id}`,
-                            faction_id: faction.id,
-                            risk_level: Math.floor(Math.random() * 5) + 1,
-                            region_name: 'Centro',
-                            area: Math.random() * 10
-                          })
-                        }}
-                        title={`Área controlada por ${faction.name}`}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
+              <MapEditor
+                center={mapCenter}
+                zoom={mapZoom}
+                selectedTool={selectedTool}
+                factions={factions}
+                geometries={geometries}
+                layerVisibility={layerVisibility}
+                onGeometryCreate={handleGeometryCreate}
+                onGeometryUpdate={handleGeometryUpdate}
+                onGeometryDelete={handleGeometryDelete}
+              />
             </CardContent>
           </Card>
         </div>

@@ -7,6 +7,11 @@ COPY package*.json ./
 RUN npm ci
 
 COPY . .
+
+# Set environment variables for build
+ARG NEXT_PUBLIC_MAPBOX_TOKEN
+ENV NEXT_PUBLIC_MAPBOX_TOKEN=$NEXT_PUBLIC_MAPBOX_TOKEN
+
 RUN npm run build
 
 # Production stage

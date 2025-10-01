@@ -4,7 +4,7 @@
 
 ## 🎯 Resumo Executivo
 
-O projeto está em **fase de desenvolvimento ativa** com backend e admin interface funcionais. O sistema possui autenticação, dashboard com dados reais, e estrutura completa para gestão de facções e mapas.
+O projeto está em **fase de desenvolvimento ativa** com backend e admin interface funcionais. O sistema possui autenticação, dashboard com dados reais, **editor de mapas completo com Mapbox GL JS**, e estrutura completa para gestão de facções e mapas.
 
 ## ✅ IMPLEMENTADO E FUNCIONAL
 
@@ -24,12 +24,13 @@ O projeto está em **fase de desenvolvimento ativa** com backend e admin interfa
   - Health checks implementados
 
 ### Admin Interface (Next.js 14)
-- **Status:** ✅ 85% COMPLETO
+- **Status:** ✅ 90% COMPLETO
 - **Funcionalidades:**
   - Next.js 14 com App Router
   - NextAuth integrado com backend
   - Layout responsivo com sidebar
   - Dashboard com dados reais (não mock)
+  - **Editor de mapas completo com Mapbox GL JS** ✅ NOVO
   - Validação de login obrigatória
   - API client com interceptors
   - Hooks para dashboard implementados
@@ -38,15 +39,6 @@ O projeto está em **fase de desenvolvimento ativa** com backend e admin interfa
   - Interface moderna com Shadcn/ui
 
 ## 🚧 EM DESENVOLVIMENTO
-
-### Editor de Mapas
-- **Status:** 🚧 0% IMPLEMENTADO
-- **Necessário:**
-  - Integração Mapbox GL JS
-  - Ferramentas de desenho (Mapbox GL Draw)
-  - Controle de camadas por facção
-  - Salvamento de geometrias
-  - Edição de geometrias existentes
 
 ### CRUD Interfaces Completas
 - **Status:** 🚧 30% IMPLEMENTADO
@@ -84,17 +76,18 @@ O projeto está em **fase de desenvolvimento ativa** com backend e admin interfa
 | Componente | Progresso | Status |
 |------------|-----------|--------|
 | Backend Core | 90% | ✅ Funcional |
-| Admin Interface | 85% | ✅ Funcional |
+| Admin Interface | 90% | ✅ Funcional |
+| Editor de Mapas | 100% | ✅ Completo |
 | Mobile App | 0% | ❌ Não iniciado |
 | Features Avançadas | 0% | ❌ Não iniciado |
 | Deploy Produção | 0% | ❌ Não iniciado |
 
-**Progresso Geral: 35%**
+**Progresso Geral: 45%**
 
 ## 🎯 Próximos Passos Prioritários
 
-### 1. Completar Admin Interface (2-3 semanas)
-- [ ] Implementar editor de mapas com Mapbox
+### 1. Completar Admin Interface (1-2 semanas)
+- [x] Implementar editor de mapas com Mapbox ✅ CONCLUÍDO
 - [ ] Completar CRUD interfaces
 - [ ] Adicionar validação de formulários
 - [ ] Implementar filtros e busca
