@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import mapboxgl from 'mapbox-gl'
 import MapboxDraw from '@mapbox/mapbox-gl-draw'
 import { toast } from 'sonner'
+import { useMapboxToken } from '@/hooks/useMapboxToken'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css'
 
@@ -34,18 +35,18 @@ export function MapEditor({
   const map = useRef<mapboxgl.Map | null>(null)
   const draw = useRef<MapboxDraw | null>(null)
   const [mapLoaded, setMapLoaded] = useState(false)
+  const { token: mapboxToken, isLoading: tokenLoading } = useMapboxToken()
 
   // Initialize map
   useEffect(() => {
-    if (!mapContainer.current || map.current) return
+    if (!mapContainer.current || map.current || tokenLoading) return
 
-    const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
-    
-    if (!mapboxToken || mapboxToken === 'pk.your-mapbox-token' || mapboxToken === 'pk.your-mapbox-token-here') {
+    if (!mapboxToken) {
       console.warn('Mapbox token not configured')
       return
     }
 
+    console.log('Mapbox token configured:', mapboxToken.substring(0, 20) + '...')
     mapboxgl.accessToken = mapboxToken
 
     try {
@@ -121,7 +122,7 @@ export function MapEditor({
         draw.current = null
       }
     }
-  }, []) // Only run once on mount
+  }, [mapboxToken, tokenLoading]) // Run when token changes
 
   // Handle tool changes
   useEffect(() => {
@@ -297,6 +298,28 @@ export function MapEditor({
       }
     })
   }, [layerVisibility, factions, mapLoaded])
+
+  if (tokenLoading) {
+    return (
+      <div className="w-full h-[500px] rounded-lg flex items-center justify-center bg-gray-100">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+          <p className="text-sm text-gray-600">Carregando mapa...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!mapboxToken) {
+    return (
+      <div className="w-full h-[500px] rounded-lg flex items-center justify-center bg-red-50">
+        <div className="text-center">
+          <div className="text-red-500 mb-2">⚠️</div>
+          <p className="text-sm text-red-600">Token do Mapbox não configurado</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div 

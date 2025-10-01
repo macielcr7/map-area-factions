@@ -70,6 +70,8 @@ services:
     build:
       context: ./admin
       dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_MAPBOX_TOKEN=pk.eyJ1IjoibWFjaWVsY3I3IiwiYSI6ImNtZzhiYmxoejA2OGIydG85ZXBpMTRiam4ifQ.mGOLussKBmrnZ-AxyF_i7g
     container_name: map-factions-admin
     ports:
       - "3000:3000"
@@ -77,7 +79,6 @@ services:
       - NEXT_PUBLIC_API_URL=http://localhost:8080/api/v1
       - NEXT_PUBLIC_WS_URL=ws://localhost:8080
       - NEXT_INTERNAL_API_URL=http://backend:8080/api/v1
-      - NEXT_PUBLIC_MAPBOX_TOKEN=pk.your-mapbox-token
       - NEXTAUTH_SECRET=your-nextauth-secret
       - NEXTAUTH_URL=http://localhost:3000
     depends_on:
