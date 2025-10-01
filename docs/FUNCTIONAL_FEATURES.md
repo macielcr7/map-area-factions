@@ -99,7 +99,43 @@ Este documento detalha todas as funcionalidades que estão **implementadas e fun
 - **Páginas Implementadas:** ✅ Implementado
   - Dashboard (com dados reais)
   - Login page
-  - Estrutura para: Users, Factions, Maps, Audit, Reports, Settings
+  - Maps (editor de mapas completo) ✅ NOVO
+  - Estrutura para: Users, Factions, Audit, Reports, Settings
+
+### Editor de Mapas ✅ NOVO
+- **Mapbox GL JS Integration:** ✅ Implementado
+  - Mapa interativo com navegação completa
+  - Zoom, pan, rotate controls
+  - Scale indicator
+  - Attribution controls
+
+- **Drawing Tools (Mapbox GL Draw):** ✅ Implementado
+  - Desenho de polígonos
+  - Desenho de linhas
+  - Modo de seleção
+  - Modo de edição
+  - Deletion de geometrias
+
+- **Backend Integration:** ✅ Implementado
+  - Create geometries (POST)
+  - Update geometries (PUT)
+  - Delete geometries (DELETE)
+  - Load geometries (GET)
+  - Auto-save functionality
+
+- **Layer Management:** ✅ Implementado
+  - Show/hide faction layers
+  - Color-coded by faction
+  - Popup information on click
+  - Multiple layer support
+  - Dynamic layer updates
+
+- **Visual Features:** ✅ Implementado
+  - Faction-based colors
+  - Fill and outline styles
+  - Hover effects
+  - Click popups with details
+  - Responsive design
 
 ### Dashboard Funcional
 - **Dados Reais:** ✅ Implementado
