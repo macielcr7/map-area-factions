@@ -4,18 +4,40 @@ Este documento detalha o plano de implementação dividido em fases para cada co
 
 ## 🎯 Visão Geral das Fases
 
-## ✅ Status Atual (set/2025)
-- Backend expõe autenticação JWT, CRUD de usuários, facções, geometrias, relatórios, auditoria e novo endpoint de configurações do sistema.
-- Admin (Next.js) consome a API real para usuários, relatórios, auditoria e configurações – nenhuma tela principal utiliza dados mockados.
-- Docker build (`docker-compose`) gera containers de backend e admin sem erros de dependência.
-- Seeds SQL (`backend/seeds/001_initial_data.sql`) provêm dados reais iniciais para usuários e facções.
+## ✅ Status Atual (Janeiro 2025)
+- **Backend:** ✅ 90% COMPLETO - API REST funcional, autenticação JWT, CRUD completo, dashboard endpoints, sistema de auditoria
+- **Admin Interface:** ✅ 85% COMPLETO - Next.js 14, NextAuth integrado, dashboard com dados reais, layout responsivo
+- **Mobile App:** ❌ 0% IMPLEMENTADO - Apenas estrutura básica
+- **Features Avançadas:** ❌ 0% IMPLEMENTADO - WebSocket, assinaturas, notificações não implementados
+- **Deploy Produção:** ❌ 0% IMPLEMENTADO - AWS, monitoramento não configurados
 
-## 🔜 Pendências Prioritárias
-- Finalizar recursos de regiões (CRUD e integração no admin) e map editor integrado ao backend.
-- Implementar persistência de incidentes, assinaturas e métricas avançadas descritas na fase 4.
-- Cobertura de testes automatizados (unitários e integração) ainda abaixo da meta planejada de 70%.
-- Pipeline de deploy (fase 5) ainda não configurado; definir infraestrutura alvo (AWS) e IaC.
-- Documentar contratos REST no `docs/api` conforme endpoints consolidados.
+**Ver documentação detalhada em:** [IMPLEMENTATION_STATUS.md](./IMPLEMENTATION_STATUS.md)
+
+## 🔜 Pendências Prioritárias (Janeiro 2025)
+
+### 1. Completar Admin Interface (2-3 semanas)
+- [ ] **Editor de Mapas:** Implementar Mapbox GL JS + Draw para criação/edição de geometrias
+- [ ] **CRUD Interfaces:** Completar formulários, tabelas, filtros e busca
+- [ ] **Validação:** Adicionar validação de formulários com Zod
+- [ ] **UX:** Melhorar feedback visual e loading states
+
+### 2. Mobile App Core (3-4 semanas)  
+- [ ] **Setup Flutter:** Estrutura base, navegação, state management
+- [ ] **Autenticação:** Integração com API backend
+- [ ] **Mapas:** Visualização de facções com Mapbox
+- [ ] **Busca:** Sistema de busca por região
+
+### 3. Features Avançadas (2-3 semanas)
+- [ ] **Tempo Real:** WebSocket/SSE para updates em tempo real
+- [ ] **Assinaturas:** Sistema de pagamento e planos
+- [ ] **Notificações:** Push notifications para mobile
+- [ ] **Cache Offline:** Funcionalidade offline para mobile
+
+### 4. Deploy Produção (1-2 semanas)
+- [ ] **AWS Infrastructure:** Terraform, RDS, ECS, CloudFront
+- [ ] **CI/CD:** GitHub Actions, testes automatizados
+- [ ] **Monitoramento:** Grafana, Prometheus, alertas
+- [ ] **Segurança:** SSL, rate limiting, backup
 
 ### Fase 1: Core Backend (2-3 semanas)
 - Implementação do backend Go com APIs básicas

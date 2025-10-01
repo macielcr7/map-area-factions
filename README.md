@@ -2,6 +2,15 @@
 
 Um sistema completo para mapeamento de áreas dominadas por facções, com interface administrativa web e aplicativo móvel/desktop. O sistema oferece visualização em tempo real de polígonos geoespaciais, busca por localização, sistema de assinaturas e atualizações em tempo real.
 
+## 🎯 Status do Projeto (Janeiro 2025)
+
+- **Backend (Go + Fiber):** ✅ 90% COMPLETO - API REST funcional
+- **Admin Interface (Next.js):** ✅ 85% COMPLETO - Dashboard com dados reais  
+- **Mobile App (Flutter):** ❌ 0% IMPLEMENTADO
+- **Features Avançadas:** ❌ 0% IMPLEMENTADO
+
+**Ver documentação completa em:** [docs/](./docs/)
+
 ## 🏗️ Arquitetura
 
 ### Stack Tecnológico
@@ -97,12 +106,20 @@ O sistema abstrai o provedor de mapas, permitindo fácil troca:
 
 ## 📚 Documentação
 
-- [Guia de Desenvolvimento](./docs/development.md)
-- [Arquitetura e ADRs](./docs/architecture/)
-- [API Reference](./docs/api/)
-- [Guia de Deploy](./docs/deployment.md)
-- [Política de Privacidade](./docs/privacy-policy.md)
-- [Termos de Uso](./docs/terms-of-service.md)
+### 🎯 Para Desenvolvedores
+- **[Guia do Agente IA](./docs/AI_AGENT_GUIDE.md)** - Guia completo para qualquer IA trabalhar no projeto
+- **[Status de Implementação](./docs/IMPLEMENTATION_STATUS.md)** - Status atual detalhado
+- **[Funcionalidades Implementadas](./docs/FUNCTIONAL_FEATURES.md)** - O que está funcionando
+- **[Workflow de Desenvolvimento](./docs/DEVELOPMENT_WORKFLOW.md)** - Como desenvolver
+
+### 📋 Planejamento
+- **[Plano de Desenvolvimento](./docs/development-plan.md)** - Roadmap por fases
+- **[Arquitetura e ADRs](./docs/adr/)** - Decisões arquiteturais
+- **[API Reference](./docs/api/)** - Documentação da API
+
+### 📄 Legal
+- **[Política de Privacidade](./docs/privacy-policy.md)
+- **[Termos de Uso](./docs/terms-of-service.md)
 
 ## 🤝 Contribuição
 
